@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -18,8 +19,20 @@ class TelegramController extends Controller
      * Se o provider não estiver configurado, segue em modo degradado
      * (mantém o fluxo navegável e registra o motivo no log).
      */
-    public function connect(): Response|RedirectResponse
+    public function connect(Request $request): Response|RedirectResponse
     {
+        // O widget posta os dados de volta no data-auth-url. Se o
+        // TELEGRAM_REDIRECT_URI estiver vazio/desatualizado, o Telegram
+        // devolve para a página atual (/connect) e o fluxo trava aqui.
+        // Encaminha para o callback preservando a query para concluir.
+        if ($request->filled(['id', 'hash'])) {
+            Log::warning('Telegram retornou no /connect; encaminhando ao callback.', [
+                'redirect_configurado' => (bool) filled(config('services.telegram.redirect')),
+            ]);
+
+            return redirect()->route('telegram.callback', $request->query());
+        }
+
         if (! filled(config('services.telegram.client_secret'))) {
             Log::warning('Telegram não configurado: TELEGRAM_TOKEN ausente. Seguindo fluxo sem OAuth.');
 
