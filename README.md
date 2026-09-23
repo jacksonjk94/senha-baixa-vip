@@ -1,76 +1,50 @@
-# AgendaFácil 📅
+# AgendaFácil 📋 — Sistema de Agendamento e Controle de Visitas
 
-Sistema completo de automação e agendamento de mensagens, feito para simplificar o envio programado para pessoas e grupos. Cadastra, agenda e o sistema dispara automaticamente no horário definido.
+Sistema desenvolvido para gerenciar o cadastro, agendamento e envio automático de confirmações e senhas de visitas. Organiza por unidade, confirma dados e envia notificações programadas via WhatsApp.
 
 ---
 
-## ✅ Sobre o Projeto
+## ✅ Propósito
 
-O **AgendaFácil** foi desenvolvido para automatizar o envio de comunicações com precisão de data e horário, permitindo organizar contatos por grupos/unidades e confirmar informações antes da execução. Funciona perfeitamente no navegador — tanto no celular quanto no computador.
+Automatizar todo o fluxo de **agendamento de visitas**, desde o cadastro do visitante até o envio automático da confirmação e senha no horário adequado, garantindo organização, controle e comunicação ágil.
 
 ---
 
 ## ✨ Funcionalidades
 
-- ✅ Cadastro de pessoas/visitantes
-- ✅ Cadastro de telefone e WhatsApp
-- ✅ Cadastro e seleção de grupo/unidade
-- ✅ Definição de data, dia e horário do disparo
-- ✅ Agendamento dos disparos
-- ✅ Autorização e integração com Telegram
-- ✅ Confirmação dos dados antes de iniciar o processo
-- ✅ Seleção e confirmação do grupo de envio
-- ✅ Execução automática no horário programado
-- ✅ Controle dos agendamentos ativos e finalizados
-- ✅ Registro básico do resultado do processo
-- ✅ Interface responsiva — celular e computador
+- ✅ Cadastro completo do visitante (dados pessoais e contato)
+- ✅ Registro de telefone e WhatsApp para notificações
+- ✅ Classificação por unidade/prisão/ala
+- ✅ Definição de data, dia e horário da visita
+- ✅ Agendamento de envio automático de confirmação
+- ✅ Controle interno via autorização administrativa
+- ✅ Confirmação prévia dos dados antes de emitir a senha
+- ✅ Geração e registro de protocolo/senha
+- ✅ Disparo automático de mensagem no horário programado
+- ✅ Painel com todos os agendamentos e status
+- ✅ Histórico de envios e resultados
+- ✅ Acesso pelo celular e computador
 
 ---
 
-## 🛠️ Tecnologias
+## 🔁 Fluxo de Uso
 
-| Camada | Tecnologia |
-|---|---|
-| Backend | *(a definir)* |
-| Frontend | *(a definir)* |
-| Mensageria | WhatsApp API / Telegram Bot API |
-| Layout | Responsivo — Mobile First |
-
----
-
-## 📌 Status
-
-- **Versão atual:** 1.0 — Lançamento inicial com fluxo principal funcionando
-- **Prazo de desenvolvimento:** até 15 dias úteis
-- **Etapas:**
-  - 🔄 Estrutura base e cadastros
-  - 📅 Agendamento e integração
-  - ✅ Liberação para validação
-  - 🚀 Entrega final
-
-### Versões futuras
-- Relatórios avançados
-- Mais tipos de automação
-- Painel administrativo expandido
-- Exportação de dados
+1. **Cadastro** → Insere os dados do visitante
+2. **Unidade** → Seleciona para qual presídio/ala é a visita
+3. **Agenda** → Escolhe data e horário permitidos
+4. **Confirma** → Revisa todos os dados
+5. **Programa** → Sistema gera protocolo e agenda o aviso
+6. **Avisa** → No horário definido, envia automaticamente via WhatsApp: senha, data, local e orientações
+7. **Registra** → Fica salvo no histórico
 
 ---
 
-## 📝 Uso
+## 📌 Detalhes Técnicos
 
-1. Cadastre os dados da pessoa e contato
-2. Selecione o grupo/unidade
-3. Defina data e horário do disparo
-4. Confirme as informações e autorize o Telegram
-5. Pronto! O sistema executa automaticamente no horário programado
-
----
-
-## 📄 Licença e Direitos
-
-Este repositório contém código de uso exclusivo desenvolvido sob contrato de prestação de serviços. Os direitos autorais e de uso são cedidos ao contratante conforme termo firmado. Reprodução ou redistribuição não autorizada não é permitida.
-
-**Local:** Curitiba/PR — 2026
+- **Versão:** 1.0
+- **Prazo:** até 15 dias úteis
+- **Entrega:** Funcionando e pronto para uso
+- **Direitos:** Uso exclusivo conforme contrato firmado
 
 ---
 
