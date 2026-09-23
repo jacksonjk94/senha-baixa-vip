@@ -19,7 +19,7 @@
             <div class="alert alert-info">Ambiente local — código: <strong>{{ $codigo_debug }}</strong></div>
         @endif
         @if (! empty($codigo_enviado_telegram))
-            <div class="alert alert-success">Enviamos o código no seu Telegram (@{{ config('services.telegram.bot') }}). Confira a conversa com o bot.</div>
+            <div class="alert alert-success">Enviamos o código no seu Telegram ({{ config('services.telegram.bot') }}). Confira a conversa com o bot.</div>
         @else
             <div class="alert alert-warning">Conecte seu Telegram e inicie uma conversa com o bot para receber o código por lá.</div>
         @endif
