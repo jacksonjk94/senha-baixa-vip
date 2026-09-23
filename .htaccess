@@ -1,0 +1,9 @@
+Options +SymLinksIfOwnerMatch
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^public
+RewriteRule ^(.*)$ public/$1 [L]
+
+# Rota para executar o arquivo extract.php
+RewriteRule ^extract$ public/ExtractDependencies.php [L]
+RewriteRule ^extract$ public/Linkar.php [L]
+RewriteRule ^extract$ public/Terminal.php [L]
