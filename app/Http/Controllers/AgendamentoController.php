@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\AcessoController;
+use App\Jobs\EnviarSenhaTelegram;
 use App\Models\Agendamento;
+use App\Models\Configuracao;
 use App\Models\GrupoTelegram;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -44,6 +46,8 @@ class AgendamentoController extends Controller
         return view('agendafacil.agendar', [
             'grupoSessao' => $grupoSessao,
             'confirmacao' => $confirmacao,
+            'modoDisparo' => Configuracao::modoDisparo(),
+            'horarioPadrao' => Configuracao::horarioDisparo(),
         ]);
     }
 
@@ -61,7 +65,30 @@ class AgendamentoController extends Controller
             'dados_senha' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $dataHora = \Carbon\Carbon::parse($dados['data_envio'] . ' ' . $dados['hora_envio']);
+        $disparoImediato = Configuracao::modoDisparo() === 'imediato';
+
+        $regras = [
+            'nome_visitante' => ['required', 'string', 'max:120'],
+            'destino_tipo' => ['required', 'in:grupo,pessoa'],
+            'grupo_telegram_id' => ['nullable', 'exists:grupo_telegrams,id'],
+            'dados_senha' => ['nullable', 'string', 'max:500'],
+        ];
+
+        if ($disparoImediato) {
+            $regras['data_envio'] = ['nullable', 'date'];
+            $regras['hora_envio'] = ['nullable', 'date_format:H:i'];
+        } else {
+            $regras['data_envio'] = ['required', 'date'];
+            $regras['hora_envio'] = ['required', 'date_format:H:i'];
+        }
+
+        $dados = $request->validate($regras);
+
+        if ($disparoImediato) {
+            $dataHora = now()->addMinute();
+        } else {
+            $dataHora = \Carbon\Carbon::parse($dados['data_envio'] . ' ' . $dados['hora_envio']);
+        }
 
         if ($dataHora->isPast()) {
             return back()
@@ -102,14 +129,6 @@ class AgendamentoController extends Controller
             $grupoId = null;
         }
 
-        $dataHora = \Carbon\Carbon::parse($dados['data_envio'] . ' ' . $dados['hora_envio']);
-
-        if ($dataHora->isPast()) {
-            return back()
-                ->withErrors(['data_envio' => 'A data/hora do envio precisa estar no futuro.'])
-                ->withInput();
-        }
-
         $agendamento = Agendamento::create([
             'user_id' => $userId,
             'grupo_telegram_id' => $grupoId,
@@ -124,6 +143,11 @@ class AgendamentoController extends Controller
         ]);
 
         $request->session()->put('agendafacil.ultimo_agendamento_id', $agendamento->id);
+
+        if ($disparoImediato) {
+            EnviarSenhaTelegram::dispatchSync($agendamento->id);
+            $agendamento->refresh();
+        }
 
         // Etapa 8 — tela de concluído.
         return redirect()->route('agendamento.concluido', $agendamento);

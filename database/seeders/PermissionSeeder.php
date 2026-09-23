@@ -51,7 +51,7 @@ class PermissionSeeder extends Seeder
 
         // ✅ Definição de roles e suas permissões
         $rolesWithPermissions = [
-            'root' => ['*','manage users','manage system data'],
+            'root' => ['*', 'manage users', 'manage system data'],
             'system' => ['*','manage users','manage system data'],
             'master' => ['*', 'manage users', 'manage system data'],
             'super-admin' => ['*', 'manage users', 'manage system data'],

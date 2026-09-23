@@ -11,7 +11,7 @@
 </div>
 
 <h2 class="h6 mt-4">Agendamentos recentes</h2>
-<div class="card stat-card"><div class="card-body p-0">
+<div class="card stat-card"><div class="card-body p-0"><div class="af-table-wrap">
 <table class="table mb-0">
     <thead><tr><th>Visitante</th><th>Destino</th><th>Envio</th><th>Status</th></tr></thead>
     <tbody>
@@ -27,5 +27,5 @@
     @endforelse
     </tbody>
 </table>
-</div></div>
+</div></div></div>
 @endsection

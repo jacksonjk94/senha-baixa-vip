@@ -32,7 +32,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(SocialiteWasCalled::class, TelegramExtendSocialite::class.'@handle');
 
         // Set the default string length for the database schema
-        // Schema::defaultStringLength(191);
+        Schema::defaultStringLength(191);
 
         // Force HTTPS in production
         if ($this->app->environment(['staging', 'production', 'test'])) {

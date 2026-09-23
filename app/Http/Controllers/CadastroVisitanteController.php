@@ -1,0 +1,46 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+class CadastroVisitanteController extends Controller
+{
+    /**
+     * Rota externa (sem auth): visitante se cadastra sozinho.
+     */
+    public function criar()
+    {
+        return view('agendafacil.cadastro');
+    }
+
+    public function salvar(Request $request)
+    {
+        $dados = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
+            'telefone' => ['required', 'string', 'max:30'],
+        ], [
+            'name.required' => 'Informe seu nome.',
+            'email.required' => 'Informe seu e-mail.',
+            'email.unique' => 'Este e-mail já está cadastrado. Use a tela de acesso.',
+            'telefone.required' => 'Informe seu telefone (usado no acesso por 4 dígitos).',
+        ]);
+
+        User::create([
+            'name' => $dados['name'],
+            'email' => $dados['email'],
+            'telefone' => $dados['telefone'],
+            'password' => Hash::make(Str::random(16)),
+            'role' => 'user',
+            'active' => true,
+        ]);
+
+        return redirect()
+            ->route('agendafacil.acesso')
+            ->with('sucesso', 'Cadastro realizado! Agora digite os 4 últimos dígitos do seu telefone para continuar.');
+    }
+}

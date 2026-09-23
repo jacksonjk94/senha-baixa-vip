@@ -5,7 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Agendamento;
 use App\Models\GrupoTelegram;
 use App\Models\User;
+use App\Services\TelegramBotService;
+use App\Support\PapelHierarquia;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
@@ -24,21 +28,201 @@ class AdminController extends Controller
     }
 
     /**
-     * Cadastros (visitantes/dados).
+     * Cadastros: somente visitantes (role user).
      */
     public function cadastros(Request $request)
     {
         $busca = trim((string) $request->query('busca', ''));
 
         $usuarios = User::query()
-            ->when($busca !== '', fn ($q) => $q
-                ->where('name', 'like', "%{$busca}%")
-                ->orWhere('email', 'like', "%{$busca}%"))
+            ->whereIn('role', PapelHierarquia::VISITANTES)
+            ->when($busca !== '', fn ($q) => $q->where(function ($w) use ($busca) {
+                $w->where('name', 'like', "%{$busca}%")
+                    ->orWhere('email', 'like', "%{$busca}%")
+                    ->orWhere('telefone', 'like', "%{$busca}%");
+            }))
             ->latest()
             ->paginate(15)
             ->withQueryString();
 
         return view('admin.cadastros', compact('usuarios', 'busca'));
+    }
+
+    /**
+     * Cadastra um novo visitante (role user, senha aleatória — acesso via 4 dígitos).
+     */
+    public function armazenarVisitante(Request $request)
+    {
+        $dados = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
+            'telefone' => ['required', 'string', 'max:30'],
+            'telegram_username' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        User::create([
+            'name' => $dados['name'],
+            'email' => $dados['email'],
+            'telefone' => $dados['telefone'],
+            'telegram_username' => $dados['telegram_username'] ?? null,
+            'password' => Hash::make(Str::random(16)),
+            'role' => 'user',
+            'active' => true,
+        ]);
+
+        return back()->with('sucesso', 'Visitante cadastrado com sucesso!');
+    }
+
+    /**
+     * Atualiza um visitante.
+     */
+    public function atualizarVisitante(Request $request, User $visitante)
+    {
+        abort_unless(PapelHierarquia::ehVisitante($visitante->role), 403);
+
+        $dados = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:190', 'unique:users,email,' . $visitante->id],
+            'telefone' => ['required', 'string', 'max:30'],
+            'telegram_username' => ['nullable', 'string', 'max:60'],
+            'active' => ['nullable', 'boolean'],
+        ]);
+
+        $visitante->update([
+            'name' => $dados['name'],
+            'email' => $dados['email'],
+            'telefone' => $dados['telefone'],
+            'telegram_username' => $dados['telegram_username'] ?? null,
+            'active' => $request->boolean('active', true),
+        ]);
+
+        return back()->with('sucesso', 'Cadastro atualizado com sucesso!');
+    }
+
+    /**
+     * Exclui (soft delete) um visitante, com confirmação na view.
+     */
+    public function excluirVisitante(User $visitante)
+    {
+        abort_unless(PapelHierarquia::ehVisitante($visitante->role), 403);
+
+        $visitante->delete();
+
+        return back()->with('sucesso', 'Cadastro excluído com sucesso!');
+    }
+
+    /**
+     * Usuários de sistema, conforme a hierarquia do autenticado.
+     */
+    public function usuarios(Request $request)
+    {
+        $ator = $request->user();
+        $visiveis = PapelHierarquia::visiveisPara($ator);
+        $busca = trim((string) $request->query('busca', ''));
+
+        $usuarios = User::query()
+            ->whereIn('role', $visiveis)
+            ->when($busca !== '', fn ($q) => $q->where(function ($w) use ($busca) {
+                $w->where('name', 'like', "%{$busca}%")
+                    ->orWhere('email', 'like', "%{$busca}%");
+            }))
+            ->orderBy('role')
+            ->orderBy('name')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('admin.usuarios', [
+            'usuarios' => $usuarios,
+            'busca' => $busca,
+            'atribuiveis' => PapelHierarquia::atribuiveisPara($ator),
+            'podeGerenciarPares' => (bool) $ator->can_manage_admins,
+        ]);
+    }
+
+    /**
+     * Cria um usuário de sistema dentro dos papéis permitidos ao ator.
+     */
+    public function armazenarUsuario(Request $request)
+    {
+        $ator = $request->user();
+        $atribuiveis = PapelHierarquia::atribuiveisPara($ator);
+
+        $dados = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'max:100'],
+            'role' => ['required', 'in:' . implode(',', $atribuiveis)],
+            'telefone' => ['nullable', 'string', 'max:30'],
+            'can_manage_admins' => ['nullable', 'boolean'],
+            'active' => ['nullable', 'boolean'],
+        ]);
+
+        User::create([
+            'name' => $dados['name'],
+            'email' => $dados['email'],
+            'password' => Hash::make($dados['password']),
+            'role' => $dados['role'],
+            'telefone' => $dados['telefone'] ?? null,
+            'can_manage_admins' => $ator->can_manage_admins && $request->boolean('can_manage_admins'),
+            'active' => $request->boolean('active', true),
+        ]);
+
+        return back()->with('sucesso', 'Usuário criado com sucesso!');
+    }
+
+    /**
+     * Atualiza um usuário de sistema (sem never acima, sem auto-edição de papel).
+     */
+    public function atualizarUsuario(Request $request, User $usuario)
+    {
+        $ator = $request->user();
+
+        abort_unless(PapelHierarquia::podeGerenciar($ator, $usuario), 403, 'Sem permissão para gerenciar este usuário.');
+
+        $atribuiveis = PapelHierarquia::atribuiveisPara($ator);
+
+        $dados = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:190', 'unique:users,email,' . $usuario->id],
+            'password' => ['nullable', 'string', 'min:8', 'max:100'],
+            'role' => ['required', 'in:' . implode(',', $atribuiveis)],
+            'telefone' => ['nullable', 'string', 'max:30'],
+            'can_manage_admins' => ['nullable', 'boolean'],
+            'active' => ['nullable', 'boolean'],
+        ]);
+
+        $usuario->fill([
+            'name' => $dados['name'],
+            'email' => $dados['email'],
+            'role' => $dados['role'],
+            'telefone' => $dados['telefone'] ?? null,
+            'active' => $request->boolean('active', true),
+        ]);
+
+        if (filled($dados['password'] ?? null)) {
+            $usuario->password = Hash::make($dados['password']);
+        }
+
+        // Só quem já pode gerenciar admins concede a flag.
+        if ($ator->can_manage_admins) {
+            $usuario->can_manage_admins = $request->boolean('can_manage_admins');
+        }
+
+        $usuario->save();
+
+        return back()->with('sucesso', 'Usuário atualizado com sucesso!');
+    }
+
+    /**
+     * Exclui (soft delete) um usuário de sistema.
+     */
+    public function excluirUsuario(Request $request, User $usuario)
+    {
+        abort_unless(PapelHierarquia::podeGerenciar($request->user(), $usuario), 403, 'Sem permissão para excluir este usuário.');
+
+        $usuario->delete();
+
+        return back()->with('sucesso', 'Usuário excluído com sucesso!');
     }
 
     /**
@@ -59,15 +243,22 @@ class AdminController extends Controller
     }
 
     /**
-     * Gerenciamento dos destinos (grupos).
+     * Gerenciamento dos destinos (grupos) + lista via Bot API para importação.
      */
-    public function grupos(Request $request)
+    public function grupos(Request $request, TelegramBotService $telegram)
     {
         $grupos = GrupoTelegram::with('usuario')
             ->orderBy('nome')
             ->paginate(15);
 
-        return view('admin.grupos', compact('grupos'));
+        $cadastrados = GrupoTelegram::query()->pluck('chat_id')->map(fn ($id) => (string) $id)->all();
+
+        return view('admin.grupos', [
+            'grupos' => $grupos,
+            'telegramConfigurado' => $telegram->configurado(),
+            'gruposApi' => $telegram->configurado() ? $telegram->listarGrupos() : [],
+            'chatIdsCadastrados' => $cadastrados,
+        ]);
     }
 
     public function armazenarGrupo(Request $request)
@@ -91,6 +282,25 @@ class AdminController extends Controller
         $grupo->update(['ativo' => ! $grupo->ativo]);
 
         return back()->with('sucesso', 'Status do grupo atualizado.');
+    }
+
+    /**
+     * Importa um grupo vindo da Bot API (dialog "Listar do Telegram").
+     */
+    public function importarGrupo(Request $request)
+    {
+        $dados = $request->validate([
+            'chat_id' => ['required', 'string', 'max:60'],
+            'nome' => ['required', 'string', 'max:150'],
+            'tipo' => ['required', 'in:group,supergroup,channel'],
+        ]);
+
+        GrupoTelegram::updateOrCreate(
+            ['chat_id' => $dados['chat_id'], 'usuario_id' => $request->user()->id],
+            ['nome' => $dados['nome'], 'tipo' => $dados['tipo'], 'ativo' => true]
+        );
+
+        return back()->with('sucesso', 'Grupo "' . $dados['nome'] . '" cadastrado!');
     }
 
     public function atualizarStatus(Request $request, Agendamento $agendamento)

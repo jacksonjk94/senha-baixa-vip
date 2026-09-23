@@ -11,7 +11,7 @@
     <div class="col-md-2"><button class="btn btn-primary w-100">Filtrar</button></div>
 </form>
 
-<div class="card stat-card"><div class="card-body p-0">
+<div class="card stat-card"><div class="card-body p-0"><div class="af-table-wrap">
 <table class="table mb-0">
     <thead><tr><th>Visitante / Senha</th><th>Destino</th><th>Envio</th><th>Status</th><th>Ações</th></tr></thead>
     <tbody>
@@ -41,6 +41,6 @@
     @endforelse
     </tbody>
 </table>
-</div></div>
+</div></div></div>
 <div class="mt-3">{{ $agendamentos->links() }}</div>
 @endsection

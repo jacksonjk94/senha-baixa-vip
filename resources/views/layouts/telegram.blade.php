@@ -67,7 +67,7 @@
 </main>
 
 <footer class="text-center text-muted small pb-4">
-    AgendaFácil · Curitiba/PR · {{ date('Y') }}
+    AgendaFácil · {{ date('Y') }}
 </footer>
 </body>
 </html>

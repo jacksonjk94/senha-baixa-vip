@@ -25,6 +25,9 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 23/09/2026 | 2.2.0 | Design | Identidade visual Telegram aplicada em Blade + CSS dedicado (Etapa 2) | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.3.0 | Fluxo/Negócio | Lógica de negócio, fila, scheduler e área admin funcionais (Etapa 3) | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.4.0 | Qualidade | Suite de testes do fluxo criada — 7 testes, todos passando | OpenCode (Muse Spark) |
+| 23/09/2026 | 2.5.0 | Admin/Fluxo | Painel admin responsivo com light/dark, hierarquia de papéis, CRUD visitantes/usuários em dialogs, config. de disparos, teste Telegram e cadastro externo — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 23/09/2026 | 2.5.1 | Admin | Correção de tags escapadas no Teste Telegram + lista de chat_ids — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 23/09/2026 | 2.5.2 | Admin | Marca "AgendaFácil", grupos via Bot API no Teste Telegram e dialog de importação em Grupos — ver detalhes abaixo | OpenCode (Muse Spark) |
 
 ---
 
@@ -66,6 +69,31 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 
 - `tests/Feature/AgendaFacilFlowTest.php`: 7 testes cobrindo dígitos inválidos/válidos, código inválido, criação de agendamento `pessoa` como pendente, bloqueio admin (403 para `role=user`), dashboard admin (200) e formato da mensagem da senha — **7/7 passando (17 asserções)**.
 - `php -l` sem erros em todos os arquivos novos/alterados.
+
+### v2.5.0 — Admin responsivo, hierarquia, CRUDs, disparos, teste Telegram e cadastro externo ✅ (23/09/2026)
+
+- **Layout admin** (`layouts/admin.blade.php` reescrito): sidebar responsiva — no mobile abre fixa por cima com backdrop e fecha ao navegar (botão ☰ na topbar); no desktop colapsa/expande com persistência em `localStorage`. Tema **light/dark** com variáveis CSS, toggle 🌙/☀️ persistido e anti-flash no `<head>`. Visual profissional/futurista contido (azul Telegram `#2AABEE`, superfícies, sombras suaves — sem neon/cyberpunk), tabelas com rolagem horizontal, link ativo por rota, chip de usuário+papel na topbar.
+- **Hierarquia** (`app/Support/PapelHierarquia.php`): `root(0) > system(1) > master(2) > super-admin(3) > admin(4) > user(5) > guest(6)`; `visiveisPara()` (abaixo + pares com `can_manage_admins`), `podeGerenciar()` (abaixo sempre; mesmo nível só com a flag; nunca acima; nunca a si mesmo). `EnsureIsAdmin` passa a aceitar `root`. Migration `000021` adiciona `root` ao enum (MySQL; SQLite já flexível). `PermissionSeeder` já contempla o papel `root`.
+- **Cadastros × Usuários separados**: `admin.cadastros` lista só `role=user` (busca nome/e-mail/telefone, 4 dígitos exibidos); `admin.usuarios` (nova tela) lista papéis de sistema visíveis à hierarquia do autenticado, com badge de papel e flag `can_manage_admins`.
+- **CRUD visitantes em dialogs** (Bootstrap modals): criar (nome/e-mail/telefone/Telegram, senha aleatória, `role=user`, 4 dígitos auto-sincronizados pelo hook do model), editar e excluir com **modal de confirmação** (soft delete). Rotas `admin.cadastros.salvar/atualizar/excluir`.
+- **CRUD usuários de sistema em dialogs**: criar/editar/excluir com `role` restrito a `atribuiveisPara()` (validação `in:` + 403 via `podeGerenciar()`); checkbox `can_manage_admins` só exibido/honrado para quem já tem a flag; senha opcional na edição. Rotas `admin.usuarios.*`.
+- **Config. de disparos** (`ConfiguracaoController`, tabela `configuracoes` via migration `000022`, model `Configuracao` com cache): modo `agendado` (fila+scheduler) ou `imediato` + horário padrão. `AgendamentoController@store` honra o modo (imediato cria com `now()+1min` e `dispatchSync`); tela `agendar` exibe aviso do modo e sugere o horário configurado.
+- **Teste Telegram** (`TelegramTesteController`, tela `admin.telegram`): status `getMe`, envio de mensagem de teste para `chat_id` e ciclo gerar→enviar→verificar código de 6 dígitos em sessão. Rotas `admin.telegram.*`.
+- **Cadastro externo** (`CadastroVisitanteController`, `GET/POST /cadastro`, sem auth, view `agendafacil.cadastro` no tema Telegram): cria visitante `role=user` e redireciona a `/acesso` com mensagem.
+- **Seed Vercel** (`database/vercel-seed.sqlite`) regenerado com as novas migrations + seeds.
+- **Validação v2.5.0**: `php -l` OK em 9 arquivos; `view:cache` OK (todas as Blade compilam); `route:list` OK (21 rotas `admin.*` + 2 `visitante.*`); `migrate --force` OK do zero incluindo `000021/000022`; suite `php artisan test`: 50 passed — 7 falhas em `ExampleTest/ProfileTest/DeleteAccountTest` **pré-existentes** (confirmado via `git stash`: falham na árvore limpa; rotas `/`→redirect e `/profile` 404 não tocadas por esta versão).
+
+### v2.5.1 — Teste Telegram: tags e lista de chat_ids ✅ (23/09/2026)
+
+- `admin/telegram.blade.php`: expressões escapadas exibiam as chaves como texto — corrigido para echo Blade (comprovado no template compilado: `echo e(...)`).
+- `TelegramTesteController@index` agora envia `chats` (`GrupoTelegram` com dono, ordenados) e a tela ganhou o card **"Chats conhecidos (chat_id)"** com tabela nome/chat_id/tipo/ativo + botões **Teste/Código** que preenchem os inputs dos formulários via JS.
+
+### v2.5.2 — Marca, grupos via Bot API e importação ✅ (23/09/2026)
+
+- **Marca**: rodapés `layouts/admin.blade.php` e `layouts/telegram.blade.php` ajustados de "AgendaFácil · Curitiba/PR" para **"AgendaFácil"** (documentos/contrato em `.docs` preservados).
+- **Teste Telegram** (`admin/telegram`): card **"Grupos do Telegram (via Bot API, automático)"** — lista `getUpdates` direto na tela, sem redirect, com coluna de situação (✅ cadastrado / ⏳ não cadastrado) e botões para preencher os formulários de teste/código.
+- **Grupos** (`admin/grupos`): botão **"📡 Listar do Telegram"** abre dialog flutuante com os grupos da Bot API; não cadastrados têm botão **Cadastrar** (nova rota `POST admin/grupos/importar` → `AdminController@importarGrupo`, `updateOrCreate` por `chat_id`+usuário).
+- **Verificação**: `php -l` OK em 9 arquivos; `view:cache` OK (todas as Blade compilam); `route:list` OK (21 rotas `admin.*` + 2 `visitante.*`); `migrate --force` OK do zero incluindo `000021/000022`; suite `php artisan test`: 50 passed — 7 falhas em `ExampleTest/ProfileTest/DeleteAccountTest` **pré-existentes** (confirmado via `git stash`: falham na árvore limpa; rotas `/`→redirect e `/profile` 404 não tocadas por esta versão).
 
 ---
 

@@ -15,6 +15,9 @@
     <div class="card-header-telegram">🗓 Agendamento do disparo</div>
     <div class="card-body p-4">
         <p class="text-muted">Destino: <strong>{{ $grupoSessao['destino_nome'] ?? '—' }}</strong> ({{ $grupoSessao['destino_tipo'] ?? 'grupo' }})</p>
+        @if (($modoDisparo ?? 'agendado') === 'imediato')
+            <div class="alert alert-info">Modo <strong>disparo na hora</strong>: a senha será enviada imediatamente após confirmar.</div>
+        @endif
         <form method="POST" action="{{ route('agendamento.salvar') }}">
             @csrf
             <label class="form-label fw-semibold">Nome do visitante</label>
@@ -27,11 +30,11 @@
             <div class="row mt-3">
                 <div class="col-6">
                     <label class="form-label fw-semibold">Data</label>
-                    <input type="date" name="data_envio" class="input-telegram" value="{{ old('data_envio') }}" required>
+                    <input type="date" name="data_envio" class="input-telegram" value="{{ old('data_envio', date('Y-m-d')) }}" @if (($modoDisparo ?? 'agendado') !== 'imediato') required @endif>
                 </div>
                 <div class="col-6">
                     <label class="form-label fw-semibold">Hora</label>
-                    <input type="time" name="hora_envio" class="input-telegram" value="{{ old('hora_envio') }}" required>
+                    <input type="time" name="hora_envio" class="input-telegram" value="{{ old('hora_envio', $horarioPadrao ?? '') }}" @if (($modoDisparo ?? 'agendado') !== 'imediato') required @endif>
                 </div>
             </div>
             @error('data_envio')<div class="text-danger small">{{ $message }}</div>@enderror

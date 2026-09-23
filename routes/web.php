@@ -3,9 +3,12 @@
 use App\Http\Controllers\AcessoController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AgendamentoController;
+use App\Http\Controllers\CadastroVisitanteController;
+use App\Http\Controllers\ConfiguracaoController;
 use App\Http\Controllers\DisparoController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\TelegramController;
+use App\Http\Controllers\TelegramTesteController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -32,6 +35,10 @@ Route::post('/confirmar-dados', [AcessoController::class, 'salvarConfirmacao'])-
 Route::get('/codigo', [AcessoController::class, 'codigo'])->name('agendafacil.codigo');
 Route::post('/codigo', [AcessoController::class, 'validarCodigo'])->name('agendafacil.codigo.validar');
 
+// Cadastro externo do visitante (sem auth) → redireciona ao acesso.
+Route::get('/cadastro', [CadastroVisitanteController::class, 'criar'])->name('visitante.cadastro');
+Route::post('/cadastro', [CadastroVisitanteController::class, 'salvar'])->name('visitante.cadastro.salvar');
+
 // Autenticação Telegram (Socialite)
 Route::get('/telegram/connect', [TelegramController::class, 'connect'])->name('telegram.connect');
 Route::get('/telegram/callback', [TelegramController::class, 'callback'])->name('telegram.callback');
@@ -52,12 +59,26 @@ Route::post('/agendamento/{agendamento}/disparar', [DisparoController::class, 'd
 Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::get('/', [AdminController::class, 'index'])->name('admin.inicio');
     Route::get('/cadastros', [AdminController::class, 'cadastros'])->name('admin.cadastros');
+    Route::post('/cadastros', [AdminController::class, 'armazenarVisitante'])->name('admin.cadastros.salvar');
+    Route::patch('/cadastros/{visitante}', [AdminController::class, 'atualizarVisitante'])->name('admin.cadastros.atualizar');
+    Route::delete('/cadastros/{visitante}', [AdminController::class, 'excluirVisitante'])->name('admin.cadastros.excluir');
+    Route::get('/usuarios', [AdminController::class, 'usuarios'])->name('admin.usuarios');
+    Route::post('/usuarios', [AdminController::class, 'armazenarUsuario'])->name('admin.usuarios.salvar');
+    Route::patch('/usuarios/{usuario}', [AdminController::class, 'atualizarUsuario'])->name('admin.usuarios.atualizar');
+    Route::delete('/usuarios/{usuario}', [AdminController::class, 'excluirUsuario'])->name('admin.usuarios.excluir');
     Route::get('/disparos', [AdminController::class, 'disparos'])->name('admin.disparos');
     Route::get('/grupos', [AdminController::class, 'grupos'])->name('admin.grupos');
     Route::post('/grupos', [AdminController::class, 'armazenarGrupo'])->name('admin.grupos.salvar');
+    Route::post('/grupos/importar', [AdminController::class, 'importarGrupo'])->name('admin.grupos.importar');
     Route::patch('/grupos/{grupo}/alternar', [AdminController::class, 'alternarGrupo'])->name('admin.grupos.alternar');
     Route::patch('/agendamento/{agendamento}/status', [AdminController::class, 'atualizarStatus'])->name('admin.status');
     Route::post('/agendamento/{agendamento}/reenviar', [DisparoController::class, 'reenviar'])->name('admin.reenviar');
+    Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('admin.configuracoes');
+    Route::post('/configuracoes', [ConfiguracaoController::class, 'salvar'])->name('admin.configuracoes.salvar');
+    Route::get('/telegram', [TelegramTesteController::class, 'index'])->name('admin.telegram');
+    Route::post('/telegram/enviar', [TelegramTesteController::class, 'enviar'])->name('admin.telegram.enviar');
+    Route::post('/telegram/codigo', [TelegramTesteController::class, 'gerarCodigo'])->name('admin.telegram.codigo');
+    Route::post('/telegram/verificar', [TelegramTesteController::class, 'verificarCodigo'])->name('admin.telegram.verificar');
 });
 
 Route::middleware([
