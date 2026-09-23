@@ -60,14 +60,16 @@ return [
 
         'single' => [
             'driver' => 'single',
-            'path' => storage_path('logs/laravel.log'),
+            // No Vercel o filesystem é read-only (só /tmp permite escrita).
+            // LOG_PATH tem prioridade; em VERCEL cai para /tmp/laravel.log.
+            'path' => env('LOG_PATH', env('VERCEL') ? '/tmp/laravel.log' : storage_path('logs/laravel.log')),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
         ],
 
         'daily' => [
             'driver' => 'daily',
-            'path' => storage_path('logs/laravel.log'),
+            'path' => env('LOG_PATH', env('VERCEL') ? '/tmp/laravel.log' : storage_path('logs/laravel.log')),
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
@@ -124,7 +126,7 @@ return [
         ],
 
         'emergency' => [
-            'path' => storage_path('logs/laravel.log'),
+            'path' => env('LOG_PATH', env('VERCEL') ? '/tmp/laravel.log' : storage_path('logs/laravel.log')),
         ],
 
     ],

@@ -51,8 +51,12 @@
         "APP_SERVICES_CACHE": "/tmp/services.php",
         "VIEW_COMPILED_PATH": "/tmp",
 
-        "CACHE_DRIVER": "array",
+        "APP_MAINTENANCE_DRIVER": "cache",
+        "CACHE_STORE": "array",
+        "DB_DATABASE": "/tmp/database.sqlite",
         "LOG_CHANNEL": "stderr",
+        "LOG_PATH": "/tmp/laravel.log",
+        "QUEUE_CONNECTION": "sync",
         "SESSION_DRIVER": "cookie"
     }
 }
