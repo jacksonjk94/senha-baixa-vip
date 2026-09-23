@@ -28,6 +28,7 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 23/09/2026 | 2.5.0 | Admin/Fluxo | Painel admin responsivo com light/dark, hierarquia de papéis, CRUD visitantes/usuários em dialogs, config. de disparos, teste Telegram e cadastro externo — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.5.1 | Admin | Correção de tags escapadas no Teste Telegram + lista de chat_ids — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.5.2 | Admin | Marca "AgendaFácil", grupos via Bot API no Teste Telegram e dialog de importação em Grupos — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 23/09/2026 | 2.5.3 | Infra | Blindagem de envs vazias na Vercel (AUTH_GUARD etc.) — ver detalhes abaixo | OpenCode (Muse Spark) |
 
 ---
 
@@ -93,6 +94,12 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 - **Marca**: rodapés `layouts/admin.blade.php` e `layouts/telegram.blade.php` ajustados de "AgendaFácil · Curitiba/PR" para **"AgendaFácil"** (documentos/contrato em `.docs` preservados).
 - **Teste Telegram** (`admin/telegram`): card **"Grupos do Telegram (via Bot API, automático)"** — lista `getUpdates` direto na tela, sem redirect, com coluna de situação (✅ cadastrado / ⏳ não cadastrado) e botões para preencher os formulários de teste/código.
 - **Grupos** (`admin/grupos`): botão **"📡 Listar do Telegram"** abre dialog flutuante com os grupos da Bot API; não cadastrados têm botão **Cadastrar** (nova rota `POST admin/grupos/importar` → `AdminController@importarGrupo`, `updateOrCreate` por `chat_id`+usuário).
+
+### v2.5.3 — Blindagem de envs vazias na Vercel ✅ (23/09/2026)
+
+- **500 no `POST /login`**: `Auth::attempt()` → `Manager::driver('')` monta o método `createDriver` e o chama sem argumentos (`ArgumentCountError` na linha 101 de `Manager.php`). Causa: `AUTH_GUARD` presente-mas-vazia no Dashboard → `config('auth.defaults.guard') === ''` (mesma classe do bug `SESSION_LIFETIME=""`).
+- `api/vercel-bootstrap.php` ganhou etapa 0: sanitiza `APP_NAME/APP_ENV/AUTH_GUARD/AUTH_PASSWORD_BROKER/BROADCAST_CONNECTION/DB_CONNECTION/FILESYSTEM_DISK/LOG_CHANNEL/MAIL_MAILER` ausentes ou `""` com fallbacks serverless (`web/users/log/sqlite/local/stderr/log/AgendaFácil/production`); valores explícitos preservados. Bônus: `APP_NAME=""` gerava cookie `-session`; agora vira `agendafacil-session`.
+- **Validação**: teste standalone 10/10 (fallbacks + preservação de valor explícito).
 - **Verificação**: `php -l` OK em 9 arquivos; `view:cache` OK (todas as Blade compilam); `route:list` OK (21 rotas `admin.*` + 2 `visitante.*`); `migrate --force` OK do zero incluindo `000021/000022`; suite `php artisan test`: 50 passed — 7 falhas em `ExampleTest/ProfileTest/DeleteAccountTest` **pré-existentes** (confirmado via `git stash`: falham na árvore limpa; rotas `/`→redirect e `/profile` 404 não tocadas por esta versão).
 
 ---

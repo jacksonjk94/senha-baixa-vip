@@ -42,6 +42,37 @@ $writeEnv = static function (string $key, string $value): void {
     $_ENV[$key] = $value;
 };
 
+// 0. Vars vazias ("") no Dashboard chegam como string vazia — e drivers com
+//    nome "" quebram o Manager (ex.: AUTH_GUARD="" → Auth::attempt() 500 com
+//    "Too few arguments ... createDriver(), 0 passed").
+//    Preenche ausentes/vazias com padrões seguros para serverless.
+$rawEnv = static function (string $key) {
+    foreach ([getenv($key), $_SERVER[$key] ?? null, $_ENV[$key] ?? null] as $value) {
+        if ($value !== false && $value !== null) {
+            return $value;
+        }
+    }
+
+    return null;
+};
+
+foreach ([
+    'APP_NAME' => 'AgendaFácil',
+    'APP_ENV' => 'production',
+    'AUTH_GUARD' => 'web',
+    'AUTH_PASSWORD_BROKER' => 'users',
+    'BROADCAST_CONNECTION' => 'log',
+    'DB_CONNECTION' => 'sqlite',
+    'FILESYSTEM_DISK' => 'local',
+    'LOG_CHANNEL' => 'stderr',
+    'MAIL_MAILER' => 'log',
+] as $key => $fallback) {
+    $raw = $rawEnv($key);
+    if ($raw === null || $raw === '') {
+        $writeEnv($key, $fallback);
+    }
+}
+
 // 1. Diretórios de escrita.
 foreach ([
     '/tmp/framework/sessions',
