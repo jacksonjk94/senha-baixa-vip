@@ -74,6 +74,15 @@ if (strtolower((string) $readEnv('APP_MAINTENANCE_DRIVER', '')) === 'file') {
     $writeEnv('APP_MAINTENANCE_DRIVER', 'cache');
 }
 
+// Lifetime <= 0 faz o cookie fixo de sessão (agendafacil-session) expirar
+// no ato: o navegador o descarta, cada request gera nova sessão e todo POST
+// dá 419 — enquanto os cookies de dados (nome = session id) se acumulam.
+// Isso acontece quando SESSION_LIFETIME existe mas está vazia ("") no Dashboard.
+$lifetime = (int) $readEnv('SESSION_LIFETIME', 0);
+if ($lifetime < 1) {
+    $writeEnv('SESSION_LIFETIME', '120');
+}
+
 // 3. SQLite em /tmp.
 $dbConnection = strtolower((string) $readEnv('DB_CONNECTION', 'sqlite'));
 $dbPath = (string) $readEnv('DB_DATABASE', '/tmp/database.sqlite');
