@@ -115,6 +115,14 @@ if ($lifetime < 1) {
     $writeEnv('SESSION_LIFETIME', '120');
 }
 
+// BCRYPT_ROUNDS vazio/inválido quebra o password_hash (cost precisa de 4–31):
+// no login, o rehash (needsRehash) chama Hash::make e estoura
+// "Bcrypt hashing not supported." em BcryptHasher.php.
+$rounds = $readEnv('BCRYPT_ROUNDS', null);
+if ($rounds === null || ! is_numeric($rounds) || (int) $rounds < 4 || (int) $rounds > 31) {
+    $writeEnv('BCRYPT_ROUNDS', '10');
+}
+
 // 3. SQLite em /tmp.
 $dbConnection = strtolower((string) $readEnv('DB_CONNECTION', 'sqlite'));
 $dbPath = (string) $readEnv('DB_DATABASE', '/tmp/database.sqlite');

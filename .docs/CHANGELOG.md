@@ -29,6 +29,7 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 23/09/2026 | 2.5.1 | Admin | Correção de tags escapadas no Teste Telegram + lista de chat_ids — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.5.2 | Admin | Marca "AgendaFácil", grupos via Bot API no Teste Telegram e dialog de importação em Grupos — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.5.3 | Infra | Blindagem de envs vazias na Vercel (AUTH_GUARD etc.) — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 23/09/2026 | 2.5.4 | Infra | Blindagem de BCRYPT_ROUNDS/HASH_DRIVER (500 no login) — ver detalhes abaixo | OpenCode (Muse Spark) |
 
 ---
 
@@ -100,6 +101,12 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 - **500 no `POST /login`**: `Auth::attempt()` → `Manager::driver('')` monta o método `createDriver` e o chama sem argumentos (`ArgumentCountError` na linha 101 de `Manager.php`). Causa: `AUTH_GUARD` presente-mas-vazia no Dashboard → `config('auth.defaults.guard') === ''` (mesma classe do bug `SESSION_LIFETIME=""`).
 - `api/vercel-bootstrap.php` ganhou etapa 0: sanitiza `APP_NAME/APP_ENV/AUTH_GUARD/AUTH_PASSWORD_BROKER/BROADCAST_CONNECTION/DB_CONNECTION/FILESYSTEM_DISK/LOG_CHANNEL/MAIL_MAILER` ausentes ou `""` com fallbacks serverless (`web/users/log/sqlite/local/stderr/log/AgendaFácil/production`); valores explícitos preservados. Bônus: `APP_NAME=""` gerava cookie `-session`; agora vira `agendafacil-session`.
 - **Validação**: teste standalone 10/10 (fallbacks + preservação de valor explícito).
+
+### v2.5.4 — Blindagem de BCRYPT_ROUNDS/HASH_DRIVER (500 no login) ✅ (23/09/2026)
+
+- **500 `Bcrypt hashing not supported.` no `POST /login`**: com `BCRYPT_ROUNDS` vazio no Dashboard, o `password_hash` recebe `cost=""` (válido: 4–31). A senha confere, mas o `needsRehash` acusa divergência e o rehash chama `Hash::make` → `ValueError` convertido em `RuntimeException` em `BcryptHasher.php:66`.
+- `api/vercel-bootstrap.php`: `BCRYPT_ROUNDS` ausente/não-numérico/fora de 4–31 vira `10`; `HASH_DRIVER` vazio vira `bcrypt`.
+- **Validação**: com `BCRYPT_ROUNDS=""`, efetivo `10`, `make`/`check` OK; controle negativo confirma que `cost=""` quebra.
 - **Verificação**: `php -l` OK em 9 arquivos; `view:cache` OK (todas as Blade compilam); `route:list` OK (21 rotas `admin.*` + 2 `visitante.*`); `migrate --force` OK do zero incluindo `000021/000022`; suite `php artisan test`: 50 passed — 7 falhas em `ExampleTest/ProfileTest/DeleteAccountTest` **pré-existentes** (confirmado via `git stash`: falham na árvore limpa; rotas `/`→redirect e `/profile` 404 não tocadas por esta versão).
 
 ---
