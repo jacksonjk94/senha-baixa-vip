@@ -30,6 +30,7 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 23/09/2026 | 2.5.2 | Admin | Marca "AgendaFácil", grupos via Bot API no Teste Telegram e dialog de importação em Grupos — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.5.3 | Infra | Blindagem de envs vazias na Vercel (AUTH_GUARD etc.) — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.5.4 | Infra | Blindagem de BCRYPT_ROUNDS/HASH_DRIVER (500 no login) — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 23/09/2026 | 2.5.5 | Fluxo | Tela de conexão Telegram integrada ao layout — ver detalhes abaixo | OpenCode (Muse Spark) |
 
 ---
 
@@ -107,6 +108,12 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 - **500 `Bcrypt hashing not supported.` no `POST /login`**: com `BCRYPT_ROUNDS` vazio no Dashboard, o `password_hash` recebe `cost=""` (válido: 4–31). A senha confere, mas o `needsRehash` acusa divergência e o rehash chama `Hash::make` → `ValueError` convertido em `RuntimeException` em `BcryptHasher.php:66`.
 - `api/vercel-bootstrap.php`: `BCRYPT_ROUNDS` ausente/não-numérico/fora de 4–31 vira `10`; `HASH_DRIVER` vazio vira `bcrypt`.
 - **Validação**: com `BCRYPT_ROUNDS=""`, efetivo `10`, `make`/`check` OK; controle negativo confirma que `cost=""` quebra.
+
+### v2.5.5 — Tela de conexão Telegram integrada ao layout ✅ (23/09/2026)
+
+- **Problema**: `/telegram/connect` devolvia o HTML cru do provider (só o botão azul no vazio, sem contexto).
+- Nova view `agendafacil.conectar-telegram` no `layouts.telegram`: etapas do fluxo (1–2 concluídas, 3 ativa), card "✈ Conectar Telegram" com instruções, widget centralizado (`{!! !!}`), nome do bot e link "Pular esta etapa".
+- `TelegramController@connect` usa `getButton()` + `response()->view(...)` em vez de HTML cru; mantidos modo degradado e encaminhamento ao callback.
 - **Verificação**: `php -l` OK em 9 arquivos; `view:cache` OK (todas as Blade compilam); `route:list` OK (21 rotas `admin.*` + 2 `visitante.*`); `migrate --force` OK do zero incluindo `000021/000022`; suite `php artisan test`: 50 passed — 7 falhas em `ExampleTest/ProfileTest/DeleteAccountTest` **pré-existentes** (confirmado via `git stash`: falham na árvore limpa; rotas `/`→redirect e `/profile` 404 não tocadas por esta versão).
 
 ---

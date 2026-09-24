@@ -42,9 +42,12 @@ class TelegramController extends Controller
         }
 
         try {
-            $html = Socialite::driver('telegram')->redirect();
+            $botao = Socialite::driver('telegram')->getButton();
 
-            return response(is_string($html) ? $html : (string) $html);
+            return response()->view('agendafacil.conectar-telegram', [
+                'botaoWidget' => is_string($botao) ? $botao : (string) $botao,
+                'bot' => (string) config('services.telegram.bot', ''),
+            ]);
         } catch (\Throwable $e) {
             Log::error('Falha ao iniciar OAuth Telegram', ['erro' => $e->getMessage()]);
 
