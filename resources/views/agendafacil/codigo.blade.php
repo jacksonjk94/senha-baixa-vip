@@ -23,6 +23,17 @@
         @else
             <div class="alert alert-warning">Conecte seu Telegram e inicie uma conversa com o bot para receber o código por lá.</div>
         @endif
+        @if (empty($codigo_enviado_telegram) && ! empty($botConfigurado) && ! empty($botUsername))
+            <div class="card card-telegram mt-3"><div class="card-body p-3 text-center">
+                <p class="mb-2">Para receber o código <strong>automaticamente</strong>:</p>
+                <ol class="text-start d-inline-block mb-2">
+                    <li>Abra o bot <a href="https://t.me/{{ $botUsername }}" target="_blank" rel="noopener">{{ '@' . $botUsername }}</a> no Telegram;</li>
+                    <li>Toque em <strong>Iniciar</strong> (/start);</li>
+                    <li>Volte aqui e toque em reenviar.</li>
+                </ol><br>
+                <a href="{{ route('agendafacil.codigo') }}" class="btn-telegram d-inline-block text-decoration-none">Já iniciei — reenviar código →</a>
+            </div></div>
+        @endif
         <form method="POST" action="{{ route('agendafacil.codigo.validar') }}">
             @csrf
             <input name="codigo" class="input-telegram text-center fs-3 fw-bold" inputmode="numeric" maxlength="6" placeholder="••••••" required>

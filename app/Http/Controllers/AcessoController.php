@@ -91,6 +91,12 @@ class AcessoController extends Controller
             return redirect()->route('agendafacil.codigo');
         }
 
+        // Conexão do painel admin: com @username cadastrado, a etapa código
+        // vincula e envia sozinha — pula o widget.
+        if ($visitante && filled($visitante->telegram_username)) {
+            return redirect()->route('agendafacil.codigo');
+        }
+
         return redirect()->route('telegram.connect');
     }
 
@@ -99,6 +105,20 @@ class AcessoController extends Controller
      */
     public function codigo(Request $request, TelegramBotService $telegram)
     {
+        // Vinculação automática: usa a conexão do bot padrão (painel admin)
+        // para descobrir o chat_id pelo @username do visitante, sem widget.
+        $visitanteSessao = $this->visitanteAtual($request);
+
+        if ($visitanteSessao && ! filled($visitanteSessao->telegram_id) && filled($visitanteSessao->telegram_username) && $telegram->configurado()) {
+            $chatId = $telegram->resolverChatIdPorUsername($visitanteSessao->telegram_username);
+
+            if ($chatId) {
+                $visitanteSessao->forceFill(['telegram_id' => $chatId])->save();
+                $request->session()->put('agendafacil.telegram_ok', true);
+                Log::info('Visitante vinculado ao Telegram automaticamente', ['chat_id' => $chatId]);
+            }
+        }
+
         if (! $request->session()->get('agendafacil.codigo')) {
             $codigo = (string) random_int(100000, 999999);
             $request->session()->put('agendafacil.codigo', $codigo);
@@ -129,6 +149,11 @@ class AcessoController extends Controller
                 ? $request->session()->get('agendafacil.codigo')
                 : null,
             'codigo_enviado_telegram' => $request->session()->get('agendafacil.codigo_enviado_telegram'),
+            // Conexão do painel admin para orientar o visitante.
+            'botUsername' => $telegram->botUsername(),
+            'botConfigurado' => $telegram->configurado(),
+            'visitanteTelegram' => $this->visitanteAtual($request)?->telegram_username,
+            'visitanteConectado' => filled($this->visitanteAtual($request)?->telegram_id) || filled(Auth::user()?->telegram_id),
         ]);
     }
 

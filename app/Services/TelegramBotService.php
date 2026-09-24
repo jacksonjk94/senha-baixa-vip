@@ -101,6 +101,57 @@ class TelegramBotService
     }
 
     /**
+     * Tenta descobrir o chat_id de um usuário pelo @username, varrendo as
+     * atualizações recentes (mensagens e eventos de membro). Permite vincular
+     * o visitante automaticamente, sem passar pelo widget, desde que ele já
+     * tenha iniciado conversa com o bot (/start).
+     */
+    public function resolverChatIdPorUsername(string $username): ?string
+    {
+        $alvo = strtolower(ltrim(trim($username), '@'));
+
+        if ($alvo === '' || ! $this->configurado()) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(15)->get("{$this->apiBase}/getUpdates", [
+                'allowed_updates' => json_encode(['message', 'my_chat_member', 'channel_post', 'callback_query']),
+                'limit' => 100,
+            ]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            foreach ($response->json('result', []) as $update) {
+                $candidatos = [
+                    $update['message']['from'] ?? null,
+                    $update['message']['chat'] ?? null,
+                    $update['callback_query']['from'] ?? null,
+                    $update['my_chat_member']['from'] ?? null,
+                ];
+
+                foreach ($candidatos as $chat) {
+                    if (! is_array($chat) || ! isset($chat['id'])) {
+                        continue;
+                    }
+
+                    $nome = strtolower((string) ($chat['username'] ?? ''));
+
+                    if ($nome !== '' && $nome === $alvo) {
+                        return (string) $chat['id'];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Falha ao resolver chat_id por username', ['erro' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
+    /**
      * Lista grupos/canais visíveis via getUpdates (onde o bot teve atividade).
      * Retorna lista normalizada: [['chat_id','nome','tipo'], ...]
      */
