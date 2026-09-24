@@ -4,6 +4,19 @@
 @section('conteudo')
 <h1 class="h4 mb-3">🤖 Teste do Telegram</h1>
 
+<form method="GET" action="{{ route('admin.telegram') }}" class="d-flex flex-wrap gap-2 align-items-end mb-3">
+    <div style="max-width:320px">
+        <label class="form-label fw-semibold">Bot para testar</label>
+        <select name="bot_id" class="form-select" onchange="this.form.submit()">
+            <option value="">Padrão ({{ $bot ?: 'env' }})</option>
+            @foreach ($bots as $item)
+                <option value="{{ $item->id }}" @selected($botSelecionado?->id === $item->id)>{{ '@' . $item->username }} — {{ $item->name }}</option>
+            @endforeach
+        </select>
+    </div>
+    <a href="{{ route('admin.telegram-bots') }}" class="btn btn-outline-primary">Gerenciar bots</a>
+</form>
+
 <div class="card stat-card mb-3"><div class="card-body">
     <h2 class="h6">Conexão (getMe)</h2>
     @if (! $configurado)
@@ -72,6 +85,7 @@
         <h2 class="h6">1 · Enviar mensagem de teste</h2>
         <form method="POST" action="{{ route('admin.telegram.enviar') }}" class="d-grid gap-3">
             @csrf
+            <input type="hidden" name="bot_id" value="{{ $botSelecionado?->id }}">
             <div><label class="form-label fw-semibold">chat_id *</label><input name="chat_id" id="testeChatId" class="form-control" placeholder="-100123... (grupo) ou id do usuário" required></div>
             <div><label class="form-label fw-semibold">Mensagem *</label><textarea name="mensagem" class="form-control" rows="3" maxlength="1000" required>Teste AgendaFácil 🤖 — se você leu isto, o bot está enviando.</textarea></div>
             <div><button class="btn btn-primary">Enviar teste</button></div>
@@ -82,6 +96,7 @@
         <h2 class="h6">2 · Verificação por código</h2>
         <form method="POST" action="{{ route('admin.telegram.codigo') }}" class="d-grid gap-3">
             @csrf
+            <input type="hidden" name="bot_id" value="{{ $botSelecionado?->id }}">
             <div><label class="form-label fw-semibold">chat_id *</label><input name="chat_id" id="codigoChatId" class="form-control" placeholder="Para onde enviar o código" required value="{{ $codigoEnviado }}"></div>
             <div><button class="btn btn-outline-primary">Gerar e enviar código</button></div>
         </form>

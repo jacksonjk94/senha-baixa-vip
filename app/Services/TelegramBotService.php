@@ -2,18 +2,44 @@
 
 namespace App\Services;
 
+use App\Models\TelegramBot;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class TelegramBotService
 {
     protected ?string $token;
+    protected ?string $username;
     protected string $apiBase;
 
-    public function __construct()
+    public function __construct(?TelegramBot $bot = null, ?string $token = null, ?string $username = null)
     {
-        $this->token = config('services.telegram.token');
+        $bot ??= TelegramBot::defaultBot();
+
+        $this->token = $token ?? $bot?->token ?? config('services.telegram.token');
+        $this->username = $username ?? $bot?->username ?? config('services.telegram.bot');
         $this->apiBase = 'https://api.telegram.org/bot' . $this->token;
+    }
+
+    /**
+     * Nova instância vinculada a um bot específico (para testes por bot).
+     */
+    public function forBot(TelegramBot $bot): self
+    {
+        return new self($bot);
+    }
+
+    /**
+     * Bot em uso (registro padrão do banco ou fallback do .env).
+     */
+    public function bot(): ?TelegramBot
+    {
+        return TelegramBot::defaultBot();
+    }
+
+    public function botUsername(): string
+    {
+        return (string) ($this->username ?? '');
     }
 
     public function configurado(): bool

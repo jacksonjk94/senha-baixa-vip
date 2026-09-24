@@ -7,6 +7,7 @@ use App\Http\Controllers\CadastroVisitanteController;
 use App\Http\Controllers\ConfiguracaoController;
 use App\Http\Controllers\DisparoController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\TelegramBotsController;
 use App\Http\Controllers\TelegramController;
 use App\Http\Controllers\TelegramTesteController;
 use Illuminate\Foundation\Application;
@@ -79,6 +80,13 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::post('/telegram/enviar', [TelegramTesteController::class, 'enviar'])->name('admin.telegram.enviar');
     Route::post('/telegram/codigo', [TelegramTesteController::class, 'gerarCodigo'])->name('admin.telegram.codigo');
     Route::post('/telegram/verificar', [TelegramTesteController::class, 'verificarCodigo'])->name('admin.telegram.verificar');
+    Route::get('/telegram-bots', [TelegramBotsController::class, 'index'])->name('admin.telegram-bots');
+    Route::post('/telegram-bots', [TelegramBotsController::class, 'store'])->name('admin.telegram-bots.salvar');
+    Route::post('/telegram-bots/importar-env', [TelegramBotsController::class, 'importEnv'])->name('admin.telegram-bots.importar-env');
+    Route::patch('/telegram-bots/{bot}', [TelegramBotsController::class, 'update'])->name('admin.telegram-bots.atualizar');
+    Route::delete('/telegram-bots/{bot}', [TelegramBotsController::class, 'destroy'])->name('admin.telegram-bots.excluir');
+    Route::post('/telegram-bots/{bot}/padrao', [TelegramBotsController::class, 'setDefault'])->name('admin.telegram-bots.padrao');
+    Route::patch('/telegram-bots/{bot}/alternar', [TelegramBotsController::class, 'toggle'])->name('admin.telegram-bots.alternar');
 });
 
 Route::middleware([

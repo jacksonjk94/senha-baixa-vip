@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\TelegramBot;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -12,6 +13,23 @@ use Laravel\Socialite\Facades\Socialite;
 
 class TelegramController extends Controller
 {
+    /**
+     * Aplica o bot padrão do banco (username + token) sobre o config do
+     * Socialite nesta requisição; sem padrão, mantém o fallback do .env.
+     */
+    protected function aplicarBotPadrao(): ?TelegramBot
+    {
+        $bot = TelegramBot::defaultBot();
+
+        if ($bot) {
+            config()->set('services.telegram.bot', $bot->username);
+            config()->set('services.telegram.client_secret', $bot->token);
+            config()->set('services.telegram.token', $bot->token);
+        }
+
+        return $bot;
+    }
+
     /**
      * Etapa 3 — Exibe o widget de login do Telegram.
      * O provider Telegram não usa redirect OAuth clássico: redirect() devolve
@@ -32,6 +50,8 @@ class TelegramController extends Controller
 
             return redirect()->route('telegram.callback', $request->query());
         }
+
+        $this->aplicarBotPadrao();
 
         if (! filled(config('services.telegram.client_secret'))) {
             Log::warning('Telegram não configurado: TELEGRAM_TOKEN ausente. Seguindo fluxo sem OAuth.');
@@ -62,6 +82,9 @@ class TelegramController extends Controller
      */
     public function callback()
     {
+        // O hash do callback é validado com o token: precisa ser o do bot padrão.
+        $this->aplicarBotPadrao();
+
         try {
             $telegramUser = Socialite::driver('telegram')->user();
         } catch (\Throwable $e) {

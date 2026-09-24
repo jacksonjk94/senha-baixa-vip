@@ -31,6 +31,7 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 23/09/2026 | 2.5.3 | Infra | Blindagem de envs vazias na Vercel (AUTH_GUARD etc.) — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.5.4 | Infra | Blindagem de BCRYPT_ROUNDS/HASH_DRIVER (500 no login) — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.5.5 | Fluxo | Tela de conexão Telegram integrada ao layout — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 23/09/2026 | 2.6.0 | Bots/Login | Bots Telegram gerenciáveis + login sem modal — ver detalhes abaixo | OpenCode (Muse Spark) |
 
 ---
 
@@ -114,6 +115,17 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 - **Problema**: `/telegram/connect` devolvia o HTML cru do provider (só o botão azul no vazio, sem contexto).
 - Nova view `agendafacil.conectar-telegram` no `layouts.telegram`: etapas do fluxo (1–2 concluídas, 3 ativa), card "✈ Conectar Telegram" com instruções, widget centralizado (`{!! !!}`), nome do bot e link "Pular esta etapa".
 - `TelegramController@connect` usa `getButton()` + `response()->view(...)` em vez de HTML cru; mantidos modo degradado e encaminhamento ao callback.
+
+### v2.6.0 — Bots Telegram gerenciáveis + login sem modal ✅ (23/09/2026)
+
+- **Bots no banco** (colunas em inglês): migration `000023_create_telegram_bots_table` (`name/username/token/is_default/is_active`) + model `TelegramBot` (`defaultBot()`, scope `active()`, username sem `@`, `markAsDefault()` único).
+- **CRUD admin** (`TelegramBotsController`, tela `admin.telegram-bots`, rotas `admin.telegram-bots.*`, link na sidebar): criar/editar (token opcional na edição)/excluir com confirmação, ativar/desativar (desativar derruba o padrão), definir padrão (só ativos), importar do `.env` (`TELEGRAM_BOT_NAME/TOKEN` → valida via `getMe` e define como padrão). Tokens nunca exibidos.
+- **Bot padrão em uso**: `TelegramBotService` resolve o padrão do banco com fallback ao `.env` (`forBot()` para instância por bot, `botUsername()`); widget/callback (`TelegramController@aplicarBotPadrao`, aplicado antes de montar e de validar o hash) e exibição em `GrupoController` usam o padrão.
+- **Teste por bot**: `admin.telegram` ganhou seletor de bot (padrão + ativos); envio, código e `getMe`/`getUpdates` executam no bot selecionado (`bot_id` validado e repassado nos forms).
+- **Login sem modal**: `AuthenticatedSessionController@store` captura `\Throwable` fora de `ValidationException` e devolve erro amigável inline (o Inertia só abria o modal de erro em 500); sucesso mantém o redirect `intended(/dashboard)` — com a sessão criada, o Inertia navega sem precisar de refresh.
+- **Factory**: `UserFactory` agora cria com `active=true` (alinha ao invariante do app; corrige 2 falhas pré-existentes de `AuthenticationTest`).
+- **Seed Vercel** regenerado com a nova tabela.
+- **Validação**: `php -l` OK; `view:cache` OK (echos `@bot` comprovados no compilado); rotas `admin.telegram-bots.*` OK; suite: 50 passed, 7 falhas pré-existentes (`Example/DeleteAccount/Profile`, confirmadas na árvore limpa).
 - **Verificação**: `php -l` OK em 9 arquivos; `view:cache` OK (todas as Blade compilam); `route:list` OK (21 rotas `admin.*` + 2 `visitante.*`); `migrate --force` OK do zero incluindo `000021/000022`; suite `php artisan test`: 50 passed — 7 falhas em `ExampleTest/ProfileTest/DeleteAccountTest` **pré-existentes** (confirmado via `git stash`: falham na árvore limpa; rotas `/`→redirect e `/profile` 404 não tocadas por esta versão).
 
 ---

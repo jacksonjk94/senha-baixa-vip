@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\GrupoTelegram;
+use App\Models\TelegramBot;
 use App\Services\TelegramBotService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -10,21 +11,39 @@ use Illuminate\Support\Facades\Log;
 class TelegramTesteController extends Controller
 {
     /**
+     * Resolve o serviço para o bot selecionado (ou o padrão).
+     */
+    protected function servicoPara(?int $botId, TelegramBotService $telegram): array
+    {
+        $selecionado = $botId ? TelegramBot::find($botId) : null;
+
+        if ($selecionado && ! $selecionado->is_active) {
+            $selecionado = null;
+        }
+
+        return [$selecionado, $selecionado ? $telegram->forBot($selecionado) : $telegram];
+    }
+
+    /**
      * Tela de diagnóstico: conexão (getMe), envio de mensagem e código de verificação.
      */
-    public function index(TelegramBotService $telegram)
+    public function index(Request $request, TelegramBotService $telegram)
     {
-        $status = $telegram->testarConexao();
+        [$selecionado, $servico] = $this->servicoPara((int) $request->query('bot_id', 0) ?: null, $telegram);
+        $status = $servico->testarConexao();
+
         $cadastrados = GrupoTelegram::query()->pluck('chat_id')->map(fn ($id) => (string) $id)->all();
 
         return view('admin.telegram', [
-            'configurado' => $telegram->configurado(),
+            'configurado' => $servico->configurado(),
             'status' => $status,
-            'bot' => (string) config('services.telegram.bot', ''),
+            'bot' => $servico->botUsername(),
+            'bots' => TelegramBot::active()->orderBy('name')->get(),
+            'botSelecionado' => $selecionado,
             'codigoEnviado' => session('telegram_teste.enviado_para'),
             'chats' => GrupoTelegram::with('usuario')->orderBy('nome')->get(),
             // Grupos vindos da Bot API (getUpdates) listados direto na tela, sem redirect.
-            'gruposApi' => $telegram->configurado() ? $telegram->listarGrupos() : [],
+            'gruposApi' => $servico->configurado() ? $servico->listarGrupos() : [],
             'chatIdsCadastrados' => $cadastrados,
         ]);
     }
@@ -37,10 +56,11 @@ class TelegramTesteController extends Controller
         $dados = $request->validate([
             'chat_id' => ['required', 'string', 'max:60'],
             'mensagem' => ['required', 'string', 'max:1000'],
+            'bot_id' => ['nullable', 'integer', 'exists:telegram_bots,id'],
         ]);
 
-        $envio = $telegram->enviarMensagem($dados['chat_id'], $dados['mensagem']);
-
+        [, $servico] = $this->servicoPara($dados['bot_id'] ?? null, $telegram);
+        $envio = $servico->enviarMensagem($dados['chat_id'], $dados['mensagem']);
         if (! $envio['ok']) {
             Log::warning('Teste Telegram falhou', ['resposta' => $envio['resposta']]);
 
@@ -57,11 +77,13 @@ class TelegramTesteController extends Controller
     {
         $dados = $request->validate([
             'chat_id' => ['required', 'string', 'max:60'],
+            'bot_id' => ['nullable', 'integer', 'exists:telegram_bots,id'],
         ]);
 
         $codigo = (string) random_int(100000, 999999);
 
-        $envio = $telegram->enviarMensagem(
+        [, $servico] = $this->servicoPara($dados['bot_id'] ?? null, $telegram);
+        $envio = $servico->enviarMensagem(
             $dados['chat_id'],
             "Seu código de verificação AgendaFácil: {$codigo}"
         );

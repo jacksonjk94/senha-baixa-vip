@@ -199,6 +199,7 @@
             <div class="af-nav-title">Sistema</div>
             <a href="{{ route('admin.configuracoes') }}" class="{{ request()->routeIs('admin.configuracoes*') ? 'active' : '' }}"><span class="af-ico">⚙️</span>Config. disparos</a>
             <a href="{{ route('admin.telegram') }}" class="{{ request()->routeIs('admin.telegram*') ? 'active' : '' }}"><span class="af-ico">🤖</span>Teste Telegram</a>
+            <a href="{{ route('admin.telegram-bots') }}" class="{{ request()->routeIs('admin.telegram-bots*') ? 'active' : '' }}"><span class="af-ico">📡</span>Bots Telegram</a>
             <a href="{{ route('agendafacil.acesso') }}"><span class="af-ico">←</span>Voltar ao fluxo</a>
         </nav>
         <div class="af-sidebar-foot">AgendaFácil</div>

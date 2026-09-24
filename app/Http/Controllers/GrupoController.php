@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\GrupoTelegram;
+use App\Models\TelegramBot;
 use App\Services\TelegramBotService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -48,7 +49,7 @@ class GrupoController extends Controller
             'grupos' => $grupos,
             'busca' => $busca,
             'telegramConfigurado' => $telegram->configurado(),
-            'telegramBot' => (string) config('services.telegram.bot', 'AgendaFacil_bot'),
+            'telegramBot' => (string) (TelegramBot::defaultBot()?->username ?? config('services.telegram.bot', '')),
             'telegramStatus' => $telegramStatus,
         ]);
     }
