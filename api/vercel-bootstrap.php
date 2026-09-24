@@ -64,6 +64,7 @@ foreach ([
     'BROADCAST_CONNECTION' => 'log',
     'DB_CONNECTION' => 'sqlite',
     'FILESYSTEM_DISK' => 'local',
+    'HASH_DRIVER' => 'bcrypt',
     'LOG_CHANNEL' => 'stderr',
     'MAIL_MAILER' => 'log',
 ] as $key => $fallback) {
