@@ -39,6 +39,8 @@ Route::get('/acesso', [AcessoController::class, 'acesso'])->name('agendafacil.ac
 Route::post('/acesso', [AcessoController::class, 'validarAcesso'])->name('agendafacil.acesso.validar');
 Route::get('/confirmar-dados', [AcessoController::class, 'confirmarDados'])->name('agendafacil.confirmar-dados');
 Route::post('/confirmar-dados', [AcessoController::class, 'salvarConfirmacao'])->name('agendafacil.confirmar-dados.salvar');
+Route::get('/confirmar-dados/resumo', [AcessoController::class, 'resumo'])->name('agendafacil.resumo');
+Route::post('/confirmar-dados/confirmar', [AcessoController::class, 'confirmarResumo'])->name('agendafacil.resumo.confirmar');
 Route::get('/proxima-senha', [AcessoController::class, 'proximaSenha'])->name('agendafacil.proxima-senha');
 Route::get('/codigo', [AcessoController::class, 'codigo'])->name('agendafacil.codigo');
 Route::post('/codigo', [AcessoController::class, 'validarCodigo'])->name('agendafacil.codigo.validar');
@@ -83,6 +85,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::get('/grupos', [AdminController::class, 'grupos'])->name('admin.grupos');
     Route::post('/grupos', [AdminController::class, 'armazenarGrupo'])->name('admin.grupos.salvar');
     Route::post('/grupos/importar', [AdminController::class, 'importarGrupo'])->name('admin.grupos.importar');
+    Route::patch('/grupos/{grupo}', [AdminController::class, 'atualizarGrupo'])->name('admin.grupos.atualizar');
     Route::patch('/grupos/{grupo}/alternar', [AdminController::class, 'alternarGrupo'])->name('admin.grupos.alternar');
     Route::patch('/agendamento/{agendamento}/status', [AdminController::class, 'atualizarStatus'])->name('admin.status');
     Route::post('/agendamento/{agendamento}/reenviar', [DisparoController::class, 'reenviar'])->name('admin.reenviar');

@@ -43,4 +43,8 @@ return [
         'token' => env('TELEGRAM_TOKEN'),
     ],
 
+    'n8n' => [
+        'secret' => env('N8N_WORKER_SECRET'),
+    ],
+
 ];

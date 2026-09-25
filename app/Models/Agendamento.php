@@ -71,7 +71,7 @@ class Agendamento extends Model
      * SenhaBaixa v2: posição = ordem de envio no mesmo grupo + mesmo minuto
      * (cancelados não contam).
      */
-    public static function proximaPosicao(int $grupoId, \DateTimeInterface $dataHora): int
+    public static function proximaPosicao(int $grupoId, \DateTimeInterface $dataHora, ?int $excetoId = null): int
     {
         $inicio = \Carbon\Carbon::parse($dataHora)->startOfMinute();
         $fim = (clone $inicio)->endOfMinute();
@@ -80,10 +80,11 @@ class Agendamento extends Model
             ->where('grupo_telegram_id', $grupoId)
             ->whereBetween('data_hora_envio', [$inicio, $fim])
             ->naoCancelados()
+            ->when($excetoId, fn ($q) => $q->where('id', '!=', $excetoId))
             ->count() + 1;
     }
 
-    public static function totalGrupoHorario(int $grupoId, \DateTimeInterface $dataHora): int
+    public static function totalGrupoHorario(int $grupoId, \DateTimeInterface $dataHora, ?int $excetoId = null): int
     {
         $inicio = \Carbon\Carbon::parse($dataHora)->startOfMinute();
         $fim = (clone $inicio)->endOfMinute();
@@ -92,7 +93,66 @@ class Agendamento extends Model
             ->where('grupo_telegram_id', $grupoId)
             ->whereBetween('data_hora_envio', [$inicio, $fim])
             ->naoCancelados()
+            ->when($excetoId, fn ($q) => $q->where('id', '!=', $excetoId))
             ->count();
+    }
+
+    /**
+     * Item 4/5 — Grupo FECHADO: posição = ordem de confirmação dentro da
+     * rodada (mesmo grupo, mesmo dia). Cancelados não contam.
+     */
+    public static function proximaPosicaoRodada(int $grupoId, \DateTimeInterface $data, ?int $excetoId = null): int
+    {
+        return static::totalRodada($grupoId, $data, $excetoId) + 1;
+    }
+
+    public static function totalRodada(int $grupoId, \DateTimeInterface $data, ?int $excetoId = null): int
+    {
+        return static::query()
+            ->where('grupo_telegram_id', $grupoId)
+            ->whereDate('data_hora_envio', \Carbon\Carbon::parse($data)->toDateString())
+            ->naoCancelados()
+            ->when($excetoId, fn ($q) => $q->where('id', '!=', $excetoId))
+            ->count();
+    }
+
+    /**
+     * Item 5.6 — Recalcula posições após cancelamento, na ordem de
+     * confirmação. Escopo: rodada (fechado) ou minuto (aberto).
+     */
+    public static function recalcularPosicoes(int $grupoId, \DateTimeInterface $dataHora, string $modo): void
+    {
+        $query = static::query()
+            ->where('grupo_telegram_id', $grupoId)
+            ->naoCancelados();
+
+        if ($modo === GrupoTelegram::MODO_FECHADO) {
+            $query->whereDate('data_hora_envio', \Carbon\Carbon::parse($dataHora)->toDateString());
+        } else {
+            $inicio = \Carbon\Carbon::parse($dataHora)->startOfMinute();
+            $fim = (clone $inicio)->endOfMinute();
+            $query->whereBetween('data_hora_envio', [$inicio, $fim]);
+        }
+
+        $agendamentos = $query->orderBy('created_at')->orderBy('id')->get();
+        $total = $agendamentos->count();
+
+        foreach ($agendamentos->values() as $i => $agendamento) {
+            $agendamento->update([
+                'posicao' => $i + 1,
+                'total_grupo_horario' => $total,
+            ]);
+        }
+    }
+
+    /**
+     * Texto de exibição da posição: "5ª de 12".
+     */
+    public function posicaoTexto(): string
+    {
+        $total = $this->total_grupo_horario ?? $this->posicao ?? 1;
+
+        return "{$this->posicao}ª de {$total}";
     }
 
     /**

@@ -14,9 +14,13 @@ class ProcessarAgendamentos extends Command
 
     public function handle(): int
     {
+        // Ordem: horário, grupo e confirmação — garante o envio em bloco
+        // na sequência (grupo fechado) e por horário (grupo aberto).
         $agendamentos = Agendamento::pendentes()
             ->vencidos()
             ->orderBy('data_hora_envio')
+            ->orderBy('grupo_telegram_id')
+            ->orderBy('id')
             ->limit((int) $this->option('limite'))
             ->get();
 

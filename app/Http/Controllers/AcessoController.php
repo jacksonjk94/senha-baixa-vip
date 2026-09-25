@@ -78,12 +78,15 @@ class AcessoController extends Controller
             'grupos' => $grupos,
             'mensagemInicial' => $this->mensagemSugerida($usuario, $agendamento),
             'horarioPadrao' => Configuracao::horarioDisparo(),
+            'rascunho' => $request->session()->get('agendafacil.rascunho'),
         ]);
     }
 
     /**
-     * Salva grupo + mensagem + horário confirmados e segue para o código.
-     * Conexão do bot/grupos já feita no admin.
+     * Etapa 2 (passo 1) — Valida grupo + mensagem + data/hora e exibe a
+     * tela de resumo (Item 6.2) antes da confirmação final.
+     * Regras por modo do grupo (Item 4.4): fechado fixa o horário de
+     * envio e respeita abertura/fechamento; aberto usa data/hora livres.
      */
     public function salvarConfirmacao(Request $request)
     {
@@ -95,25 +98,18 @@ class AcessoController extends Controller
 
         $dados = $request->validate([
             'grupo_id' => ['required', 'exists:grupo_telegrams,id'],
-            'mensagem' => ['required', 'string', 'max:500', 'regex:/x\s*\d+\s*$/i'],
+            'mensagem' => ['required', 'string', 'max:200', 'regex:/x\s*\d+\s*$/i'],
             'data_envio' => ['required', 'date'],
             'hora_envio' => ['required', 'date_format:H:i'],
         ], [
             'grupo_id.required' => 'Selecione o grupo.',
             'grupo_id.exists' => 'Grupo selecionado inválido.',
-            'mensagem.required' => 'Digite a mensagem (nome + senha).',
+            'mensagem.required' => 'Digite a mensagem que aparecerá no grupo.',
+            'mensagem.max' => 'A mensagem deve ter no máximo 200 caracteres.',
             'mensagem.regex' => 'A mensagem deve terminar com a senha no padrão xNÚMERO (ex: Jackson Dos Santos x40).',
-            'data_envio.required' => 'Informe a data do disparo.',
-            'hora_envio.required' => 'Informe o horário do disparo.',
+            'data_envio.required' => 'Informe a data do envio.',
+            'hora_envio.required' => 'Informe o horário que será enviado.',
         ]);
-
-        $dataHora = \Carbon\Carbon::parse($dados['data_envio'] . ' ' . $dados['hora_envio']);
-
-        if ($dataHora->isPast()) {
-            return back()
-                ->withErrors(['data_envio' => 'A data/hora do disparo precisa estar no futuro.'])
-                ->withInput();
-        }
 
         $grupo = GrupoTelegram::ativos()->find($dados['grupo_id']);
 
@@ -123,24 +119,121 @@ class AcessoController extends Controller
                 ->withInput();
         }
 
+        $resolucao = $this->resolverEnvio($grupo, $dados['data_envio'], $dados['hora_envio']);
+
+        if (isset($resolucao['erro'])) {
+            return back()->withErrors($resolucao['erro'])->withInput();
+        }
+
         $agendamento = $this->agendamentoAtual($request, $usuario);
-        $mensagem = trim($dados['mensagem']);
+        $excetoId = $agendamento?->id;
+
+        if ($grupo->ehFechado()) {
+            $posicao = Agendamento::proximaPosicaoRodada($grupo->id, $resolucao['data_hora'], $excetoId);
+            $total = Agendamento::totalRodada($grupo->id, $resolucao['data_hora'], $excetoId) + 1;
+        } else {
+            $posicao = Agendamento::proximaPosicao($grupo->id, $resolucao['data_hora'], $excetoId);
+            $total = Agendamento::totalGrupoHorario($grupo->id, $resolucao['data_hora'], $excetoId) + 1;
+        }
+
+        $request->session()->put('agendafacil.rascunho', [
+            'grupo_id' => $grupo->id,
+            'mensagem' => trim($dados['mensagem']),
+            'data_envio' => $dados['data_envio'],
+            'hora_envio' => $dados['hora_envio'],
+            'data_hora_envio' => $resolucao['data_hora']->format('Y-m-d H:i:s'),
+            'posicao' => $posicao,
+            'total' => $total,
+            'proxima_rodada' => $resolucao['proxima_rodada'],
+        ]);
+
+        return redirect()->route('agendafacil.resumo');
+    }
+
+    /**
+     * Etapa 2 (passo 2) — Tela de resumo antes da confirmação final.
+     */
+    public function resumo(Request $request)
+    {
+        $usuario = $this->visitanteAtual($request);
+
+        if (! $usuario) {
+            return redirect()->route('agendafacil.acesso');
+        }
+
+        $rascunho = $request->session()->get('agendafacil.rascunho');
+
+        if (! $rascunho) {
+            return redirect()->route('agendafacil.confirmar-dados');
+        }
+
+        $grupo = GrupoTelegram::ativos()->find($rascunho['grupo_id']);
+
+        if (! $grupo) {
+            return redirect()->route('agendafacil.confirmar-dados')
+                ->withErrors(['grupo_id' => 'Grupo indisponível no momento.']);
+        }
+
+        return view('agendafacil.confirmar-resumo', compact('usuario', 'grupo', 'rascunho'));
+    }
+
+    /**
+     * Etapa 2 (passo 2) — Confirmação final: cria/atualiza o agendamento
+     * (definido no momento da confirmação) e segue para o código.
+     */
+    public function confirmarResumo(Request $request)
+    {
+        $usuario = $this->visitanteAtual($request);
+
+        if (! $usuario) {
+            return redirect()->route('agendafacil.acesso');
+        }
+
+        $rascunho = $request->session()->get('agendafacil.rascunho');
+
+        if (! $rascunho) {
+            return redirect()->route('agendafacil.confirmar-dados');
+        }
+
+        $grupo = GrupoTelegram::ativos()->find($rascunho['grupo_id']);
+
+        if (! $grupo) {
+            return redirect()->route('agendafacil.confirmar-dados')
+                ->withErrors(['grupo_id' => 'Grupo indisponível no momento.']);
+        }
+
+        // Recalcula no momento da confirmação (a rodada pode ter mudado).
+        $resolucao = $this->resolverEnvio($grupo, $rascunho['data_envio'], $rascunho['hora_envio']);
+
+        if (isset($resolucao['erro'])) {
+            return redirect()->route('agendafacil.confirmar-dados')
+                ->withErrors($resolucao['erro']);
+        }
+
+        $agendamento = $this->agendamentoAtual($request, $usuario);
+        $excetoId = $agendamento?->id;
+
+        if ($grupo->ehFechado()) {
+            $posicao = Agendamento::proximaPosicaoRodada($grupo->id, $resolucao['data_hora'], $excetoId);
+            $total = Agendamento::totalRodada($grupo->id, $resolucao['data_hora'], $excetoId) + 1;
+        } else {
+            $posicao = Agendamento::proximaPosicao($grupo->id, $resolucao['data_hora'], $excetoId);
+            $total = Agendamento::totalGrupoHorario($grupo->id, $resolucao['data_hora'], $excetoId) + 1;
+        }
 
         if (! $agendamento) {
-            // O agendamento é definido no momento da confirmação:
-            // cria com grupo + mensagem + horário confirmados.
             $agendamento = Agendamento::create([
                 'user_id' => $usuario->id,
                 'grupo_telegram_id' => $grupo->id,
                 'nome_visitante' => $usuario->name,
                 'senha_codigo' => static::gerarSenhaCodigo(),
-                'texto' => $mensagem,
-                'posicao' => Agendamento::proximaPosicao($grupo->id, $dataHora),
-                'total_grupo_horario' => Agendamento::totalGrupoHorario($grupo->id, $dataHora) + 1,
+                'texto' => $rascunho['mensagem'],
+                'posicao' => $posicao,
+                'total_grupo_horario' => $total,
                 'destino_tipo' => Agendamento::DESTINO_GRUPO,
                 'destino_id' => (string) $grupo->chat_id,
                 'destino_nome' => $grupo->nome,
-                'data_hora_envio' => $dataHora,
+                'data_hora_envio' => $resolucao['data_hora'],
                 'status' => Agendamento::STATUS_PENDENTE,
                 'ip_origem' => $request->ip(),
             ]);
@@ -150,11 +243,21 @@ class AcessoController extends Controller
                 'destino_tipo' => Agendamento::DESTINO_GRUPO,
                 'destino_id' => (string) $grupo->chat_id,
                 'destino_nome' => $grupo->nome,
-                'texto' => $mensagem,
-                'data_hora_envio' => $dataHora,
+                'texto' => $rascunho['mensagem'],
+                'posicao' => $posicao,
+                'total_grupo_horario' => $total,
+                'data_hora_envio' => $resolucao['data_hora'],
             ]);
         }
 
+        if ($resolucao['proxima_rodada']) {
+            $request->session()->flash(
+                'aviso',
+                'Este grupo já fechou hoje. Você estará na 1ª posição da próxima rodada (' . $resolucao['data_hora']->format('d/m') . ').'
+            );
+        }
+
+        $request->session()->forget('agendafacil.rascunho');
         $request->session()->put('agendafacil.agendamento_id', $agendamento->id);
         // Mantém compat com etapas antigas que liam esta chave.
         $request->session()->put('agendafacil.confirmacao', [
@@ -163,6 +266,68 @@ class AcessoController extends Controller
         ]);
 
         return redirect()->route('agendafacil.codigo');
+    }
+
+    /**
+     * Resolve data/hora final do envio conforme o modo do grupo.
+     * Retorna ['data_hora' => Carbon, 'proxima_rodada' => bool]
+     * ou ['erro' => [campo => mensagem]].
+     */
+    protected function resolverEnvio(GrupoTelegram $grupo, string $dataEnvio, string $horaEnvio): array
+    {
+        $agora = now();
+
+        if ($grupo->ehFechado()) {
+            $disparo = $grupo->disparoEm($agora);
+
+            if (! $disparo) {
+                return ['erro' => ['grupo_id' => 'Este grupo ainda não tem horário de envio configurado. Entre em contato.']];
+            }
+
+            $hoje = $agora->copy()->startOfDay();
+            $escolhido = \Carbon\Carbon::parse($dataEnvio)->startOfDay();
+
+            if ($escolhido->lt($hoje)) {
+                return ['erro' => ['data_envio' => 'A data do envio precisa ser hoje ou futura.']];
+            }
+
+            if (! $grupo->funcionaEm($escolhido)) {
+                return ['erro' => ['data_envio' => 'Este grupo não funciona neste dia. Escolha outro dia.']];
+            }
+
+            $proximaRodada = $escolhido->gt($hoje);
+
+            if (! $proximaRodada) {
+                $abertura = $grupo->aberturaEm($hoje);
+                $fechamento = $grupo->fechamentoEm($hoje);
+
+                if ($abertura && $agora->lt($abertura)) {
+                    return ['erro' => ['grupo_id' => 'Este grupo abre às ' . $abertura->format('H:i') . '. Volte neste horário para agendar.']];
+                }
+
+                if ($fechamento && $agora->gt($fechamento)) {
+                    $escolhido = $grupo->proximoDiaValido($hoje->copy()->addDay());
+                    $proximaRodada = true;
+                }
+            }
+
+            return [
+                'data_hora' => $grupo->disparoEm($escolhido),
+                'proxima_rodada' => $proximaRodada,
+            ];
+        }
+
+        $dataHora = \Carbon\Carbon::parse($dataEnvio . ' ' . $horaEnvio);
+
+        if ($dataHora->isPast()) {
+            return ['erro' => ['data_envio' => 'A data/hora do envio precisa estar no futuro.']];
+        }
+
+        if (! $grupo->funcionaEm($dataHora)) {
+            return ['erro' => ['data_envio' => 'Este grupo não funciona neste dia. Escolha outro dia.']];
+        }
+
+        return ['data_hora' => $dataHora, 'proxima_rodada' => false];
     }
 
     /**
@@ -258,16 +423,20 @@ class AcessoController extends Controller
     }
 
     /**
-     * Etapa 5 — Concluído (print 08.jpeg). Encerra o fluxo;
-     * o restante (disparo) acontece automaticamente no horário.
+     * Etapa 5 — Concluído (print 08.jpeg). Encerra o fluxo com o resumo
+     * do envio + posição; o restante acontece automaticamente no horário.
      */
     public function concluido(Request $request)
     {
-        if (! $this->visitanteAtual($request)) {
+        $usuario = $this->visitanteAtual($request);
+
+        if (! $usuario) {
             return redirect()->route('agendafacil.acesso');
         }
 
-        return view('agendafacil.concluido-unificado');
+        $agendamento = $this->agendamentoAtual($request, $usuario);
+
+        return view('agendafacil.concluido-unificado', compact('agendamento'));
     }
 
     /**

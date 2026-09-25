@@ -264,19 +264,26 @@ class AdminController extends Controller
 
     public function armazenarGrupo(Request $request)
     {
-        $dados = $request->validate([
-            'nome' => ['required', 'string', 'max:150'],
-            'chat_id' => ['required', 'string', 'max:60'],
-            'tipo' => ['required', 'in:group,supergroup,channel'],
-            'ordem' => ['nullable', 'integer', 'min:0', 'max:9999'],
-        ]);
+        $dados = $request->validate($this->regrasGrupo());
 
         GrupoTelegram::updateOrCreate(
             ['chat_id' => $dados['chat_id'], 'usuario_id' => $request->user()->id],
-            ['nome' => $dados['nome'], 'tipo' => $dados['tipo'], 'ativo' => true, 'ordem' => $dados['ordem'] ?? 0]
+            $this->atributosGrupo($dados, ['ativo' => true, 'ordem' => $dados['ordem'] ?? 0])
         );
 
         return back()->with('sucesso', 'Grupo cadastrado com sucesso!');
+    }
+
+    /**
+     * Edita regras do grupo (modo aberto/fechado, horários, dias, ordem).
+     */
+    public function atualizarGrupo(Request $request, GrupoTelegram $grupo)
+    {
+        $dados = $request->validate($this->regrasGrupo());
+
+        $grupo->update($this->atributosGrupo($dados));
+
+        return back()->with('sucesso', 'Grupo atualizado com sucesso!');
     }
 
     public function alternarGrupo(GrupoTelegram $grupo)
@@ -299,7 +306,7 @@ class AdminController extends Controller
 
         GrupoTelegram::updateOrCreate(
             ['chat_id' => $dados['chat_id'], 'usuario_id' => $request->user()->id],
-            ['nome' => $dados['nome'], 'tipo' => $dados['tipo'], 'ativo' => true]
+            ['nome' => $dados['nome'], 'tipo' => $dados['tipo'], 'modo' => GrupoTelegram::MODO_ABERTO, 'ativo' => true]
         );
 
         return back()->with('sucesso', 'Grupo "' . $dados['nome'] . '" cadastrado!');
@@ -317,7 +324,8 @@ class AdminController extends Controller
     }
 
     /**
-     * Cancela um agendamento (não entra mais na fila de disparo).
+     * Cancela um agendamento (não entra mais na fila de disparo)
+     * e recalcula as posições dos demais da rodada/horário (Item 5.6).
      */
     public function cancelar(Agendamento $agendamento)
     {
@@ -327,7 +335,46 @@ class AdminController extends Controller
 
         $agendamento->marcarComoCancelado();
 
+        if ($agendamento->grupo_telegram_id && $agendamento->data_hora_envio) {
+            Agendamento::recalcularPosicoes(
+                $agendamento->grupo_telegram_id,
+                $agendamento->data_hora_envio,
+                $agendamento->grupo?->modo ?? GrupoTelegram::MODO_ABERTO
+            );
+        }
+
         return back()->with('sucesso', 'Agendamento cancelado.');
+    }
+
+    /**
+     * Validação do cadastro/edição de grupos (Item 2.4 + Item 4.1).
+     */
+    protected function regrasGrupo(): array
+    {
+        return [
+            'nome' => ['required', 'string', 'max:150'],
+            'chat_id' => ['required', 'string', 'max:60'],
+            'tipo' => ['required', 'in:group,supergroup,channel'],
+            'modo' => ['required', 'in:aberto,fechado'],
+            'horario_abertura' => ['nullable', 'date_format:H:i'],
+            'horario_fechamento' => ['nullable', 'date_format:H:i'],
+            'horario_disparo' => ['nullable', 'date_format:H:i'],
+            'dias_semana' => ['nullable', 'regex:/^[1-7](,[1-7])*$/'],
+            'ordem' => ['nullable', 'integer', 'min:0', 'max:9999'],
+        ];
+    }
+
+    protected function atributosGrupo(array $dados, array $extras = []): array
+    {
+        return array_merge([
+            'nome' => $dados['nome'],
+            'tipo' => $dados['tipo'],
+            'modo' => $dados['modo'] ?? GrupoTelegram::MODO_ABERTO,
+            'horario_abertura' => $dados['horario_abertura'] ?? null,
+            'horario_fechamento' => $dados['horario_fechamento'] ?? null,
+            'horario_disparo' => $dados['horario_disparo'] ?? null,
+            'dias_semana' => $dados['dias_semana'] ?? null,
+        ], $extras);
     }
 
     /**

@@ -21,6 +21,7 @@
             <label class="border rounded d-flex gap-2 align-items-center p-3 w-100 mb-3" style="cursor:pointer;background:#F8FBFD">
                 <input type="radio" name="grupo_id" value="{{ $grupo->id }}" class="form-check-input mt-0" checked required>
                 <span class="fw-bold">{{ $grupo->nome }}</span>
+                <small class="text-muted">{{ $grupo->etiquetaModo() }}@if($grupo->ehFechado() && $grupo->horario_disparo) · envia às {{ $grupo->horario_disparo->format('H:i') }}@endif</small>
             </label>
             @error('grupo_id')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
             <button type="submit" class="btn-telegram">Eu confirmo que esse grupo é o correto</button>

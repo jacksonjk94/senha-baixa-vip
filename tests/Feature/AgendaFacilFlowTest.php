@@ -125,7 +125,7 @@ class AgendaFacilFlowTest extends TestCase
         $resposta->assertSee('13981388690');
     }
 
-    public function test_salvar_confirmacao_atualiza_grupo_e_mensagem_e_avanca_para_codigo(): void
+    public function test_salvar_confirmacao_mostra_resumo_e_confirmar_avanca_para_codigo(): void
     {
         $usuario = User::factory()->create(['ultimos_digitos_telefone' => '1234']);
         $grupoAtual = GrupoTelegram::create([
@@ -161,7 +161,23 @@ class AgendaFacilFlowTest extends TestCase
                 'hora_envio' => $quando->format('H:i'),
             ]);
 
-        $resposta->assertRedirect(route('agendafacil.codigo'));
+        $resposta->assertRedirect(route('agendafacil.resumo'));
+
+        $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.rascunho' => session('agendafacil.rascunho'),
+        ])->get(route('agendafacil.resumo'))
+            ->assertOk()
+            ->assertSee('Confirme seu agendamento')
+            ->assertSee('Jackson Dos Santos x40')
+            ->assertSee('1ª de 1');
+
+        $confirmacao = $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.rascunho' => session('agendafacil.rascunho'),
+        ])->post(route('agendafacil.resumo.confirmar'));
+
+        $confirmacao->assertRedirect(route('agendafacil.codigo'));
         $this->assertSame($agendamento->id, session('agendafacil.agendamento_id'));
         $this->assertDatabaseHas('agendamentos', [
             'id' => $agendamento->id,
@@ -229,7 +245,14 @@ class AgendaFacilFlowTest extends TestCase
                 'hora_envio' => $quando->format('H:i'),
             ]);
 
-        $resposta->assertRedirect(route('agendafacil.codigo'));
+        $resposta->assertRedirect(route('agendafacil.resumo'));
+
+        $confirmacao = $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.rascunho' => session('agendafacil.rascunho'),
+        ])->post(route('agendafacil.resumo.confirmar'));
+
+        $confirmacao->assertRedirect(route('agendafacil.codigo'));
         $this->assertDatabaseHas('agendamentos', [
             'user_id' => $usuario->id,
             'grupo_telegram_id' => $grupo->id,
@@ -426,5 +449,289 @@ class AgendaFacilFlowTest extends TestCase
         $this->assertStringContainsString('SENHA AUTORIZADA', $texto);
         $this->assertStringContainsString('Maria', $texto);
         $this->assertStringContainsString('AF-12345', $texto);
+    }
+
+    public function test_resumo_exige_rascunho(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '8881']);
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->get(route('agendafacil.resumo'))
+            ->assertRedirect(route('agendafacil.confirmar-dados'));
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.resumo.confirmar'))
+            ->assertRedirect(route('agendafacil.confirmar-dados'));
+    }
+
+    public function test_confirmar_dados_sem_grupos_exibe_mensagem_amigavel(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '8882']);
+
+        $this->assertDatabaseCount('grupo_telegrams', 0);
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->get(route('agendafacil.confirmar-dados'))
+            ->assertOk()
+            ->assertSee('Os grupos ainda estão sendo configurados.');
+    }
+
+    public function test_confirmar_dados_exibe_etiqueta_aberto_fechado(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '8883']);
+        GrupoTelegram::create([
+            'nome' => 'Grupo Livre', 'chat_id' => '-100900001', 'tipo' => 'supergroup',
+            'modo' => 'aberto', 'ativo' => true,
+        ]);
+        GrupoTelegram::create([
+            'nome' => 'Grupo Rodada', 'chat_id' => '-100900002', 'tipo' => 'supergroup',
+            'modo' => 'fechado', 'horario_disparo' => '19:58', 'ativo' => true,
+        ]);
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->get(route('agendafacil.confirmar-dados'))
+            ->assertOk()
+            ->assertSee('Grupo Livre [Aberto]')
+            ->assertSee('Grupo Rodada [Fechado]');
+    }
+
+    public function test_mensagem_maior_que_200_e_rejeitada(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '8884']);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Teste', 'chat_id' => '-100900003', 'tipo' => 'supergroup', 'ativo' => true,
+        ]);
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.confirmar-dados.salvar'), [
+                'grupo_id' => $grupo->id,
+                'mensagem' => str_repeat('a', 197) . ' x40',
+                'data_envio' => now()->addDay()->toDateString(),
+                'hora_envio' => '21:00',
+            ])
+            ->assertSessionHasErrors('mensagem');
+    }
+
+    public function test_grupo_fechado_fixa_horario_no_disparo(): void
+    {
+        $usuario = User::factory()->create([
+            'name' => 'Visitante Fechado', 'ultimos_digitos_telefone' => '8885',
+        ]);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Rodada', 'chat_id' => '-100900004', 'tipo' => 'supergroup',
+            'modo' => 'fechado', 'horario_abertura' => '00:00',
+            'horario_fechamento' => '23:59', 'horario_disparo' => '19:58', 'ativo' => true,
+        ]);
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.confirmar-dados.salvar'), [
+                'grupo_id' => $grupo->id,
+                'mensagem' => 'Visitante Fechado x1',
+                'data_envio' => now()->toDateString(),
+                'hora_envio' => '10:00',
+            ])
+            ->assertRedirect(route('agendafacil.resumo'));
+
+        $confirmacao = $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.rascunho' => session('agendafacil.rascunho'),
+        ])->post(route('agendafacil.resumo.confirmar'));
+
+        $confirmacao->assertRedirect(route('agendafacil.codigo'));
+        $this->assertDatabaseHas('agendamentos', [
+            'user_id' => $usuario->id,
+            'texto' => 'Visitante Fechado x1',
+            'data_hora_envio' => now()->format('Y-m-d') . ' 19:58:00',
+        ]);
+    }
+
+    public function test_grupo_fechado_antes_da_abertura_bloqueia(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '8886']);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Rodada', 'chat_id' => '-100900005', 'tipo' => 'supergroup',
+            'modo' => 'fechado', 'horario_abertura' => '23:59',
+            'horario_fechamento' => '23:59', 'horario_disparo' => '23:59', 'ativo' => true,
+        ]);
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.confirmar-dados.salvar'), [
+                'grupo_id' => $grupo->id,
+                'mensagem' => 'Visitante x1',
+                'data_envio' => now()->toDateString(),
+                'hora_envio' => '23:59',
+            ])
+            ->assertSessionHasErrors('grupo_id');
+    }
+
+    public function test_grupo_fechado_apos_fechamento_vai_para_proxima_rodada(): void
+    {
+        $usuario = User::factory()->create([
+            'name' => 'Visitante Rodada', 'ultimos_digitos_telefone' => '8887',
+        ]);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Rodada', 'chat_id' => '-100900006', 'tipo' => 'supergroup',
+            'modo' => 'fechado', 'horario_abertura' => '00:00',
+            'horario_fechamento' => '00:01', 'horario_disparo' => '19:58', 'ativo' => true,
+        ]);
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.confirmar-dados.salvar'), [
+                'grupo_id' => $grupo->id,
+                'mensagem' => 'Visitante Rodada x1',
+                'data_envio' => now()->toDateString(),
+                'hora_envio' => '19:58',
+            ])
+            ->assertRedirect(route('agendafacil.resumo'));
+
+        $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.rascunho' => session('agendafacil.rascunho'),
+        ])->get(route('agendafacil.resumo'))
+            ->assertOk()
+            ->assertSee('próxima rodada');
+
+        $confirmacao = $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.rascunho' => session('agendafacil.rascunho'),
+        ])->post(route('agendafacil.resumo.confirmar'));
+
+        $confirmacao->assertRedirect(route('agendafacil.codigo'));
+        $confirmacao->assertSessionHas('aviso');
+        $this->assertDatabaseHas('agendamentos', [
+            'user_id' => $usuario->id,
+            'data_hora_envio' => now()->addDay()->format('Y-m-d') . ' 19:58:00',
+        ]);
+    }
+
+    public function test_posicao_rodada_conta_mesmo_dia(): void
+    {
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Rodada', 'chat_id' => '-100900007', 'tipo' => 'supergroup',
+            'modo' => 'fechado', 'horario_disparo' => '19:58', 'ativo' => true,
+        ]);
+        $dia = now()->addDay();
+
+        $this->assertSame(1, Agendamento::proximaPosicaoRodada($grupo->id, $dia));
+
+        Agendamento::factory()->create([
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => 'Pessoa x1',
+            'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id,
+            'data_hora_envio' => $dia->copy()->setTime(19, 58),
+            'status' => Agendamento::STATUS_PENDENTE,
+        ]);
+        Agendamento::factory()->create([
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => 'Pessoa x2',
+            'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id,
+            'data_hora_envio' => $dia->copy()->setTime(19, 58),
+            'status' => Agendamento::STATUS_PENDENTE,
+        ]);
+
+        $this->assertSame(3, Agendamento::proximaPosicaoRodada($grupo->id, $dia));
+        $this->assertSame(2, Agendamento::totalRodada($grupo->id, $dia));
+    }
+
+    public function test_cancelar_recalcula_posicoes(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Teste', 'chat_id' => '-100900008', 'tipo' => 'supergroup', 'ativo' => true,
+        ]);
+        $quando = now()->addDay()->setTime(21, 0);
+
+        $primeiro = Agendamento::factory()->create([
+            'grupo_telegram_id' => $grupo->id, 'texto' => 'A x1', 'posicao' => 1,
+            'total_grupo_horario' => 3, 'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id, 'data_hora_envio' => $quando,
+            'status' => Agendamento::STATUS_PENDENTE,
+        ]);
+        $segundo = Agendamento::factory()->create([
+            'grupo_telegram_id' => $grupo->id, 'texto' => 'B x2', 'posicao' => 2,
+            'total_grupo_horario' => 3, 'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id, 'data_hora_envio' => $quando->copy()->addSecond(),
+            'status' => Agendamento::STATUS_PENDENTE,
+        ]);
+        $terceiro = Agendamento::factory()->create([
+            'grupo_telegram_id' => $grupo->id, 'texto' => 'C x3', 'posicao' => 3,
+            'total_grupo_horario' => 3, 'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id, 'data_hora_envio' => $quando->copy()->addSeconds(2),
+            'status' => Agendamento::STATUS_PENDENTE,
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.cancelar', $primeiro))
+            ->assertRedirect();
+
+        $this->assertSame(1, $segundo->refresh()->posicao);
+        $this->assertSame(2, $terceiro->refresh()->posicao);
+        $this->assertSame(2, $terceiro->refresh()->total_grupo_horario);
+    }
+
+    public function test_admin_cadastra_e_edita_grupo_com_modo_e_horarios(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->post(route('admin.grupos.salvar'), [
+            'nome' => 'Grupo Rodada',
+            'chat_id' => '-100900009',
+            'tipo' => 'supergroup',
+            'modo' => 'fechado',
+            'horario_abertura' => '19:50',
+            'horario_fechamento' => '19:55',
+            'horario_disparo' => '19:58',
+            'dias_semana' => '1,2,3,4,5',
+            'ordem' => 1,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('grupo_telegrams', [
+            'chat_id' => '-100900009',
+            'modo' => 'fechado',
+        ]);
+
+        $grupo = GrupoTelegram::where('chat_id', '-100900009')->first();
+
+        $this->actingAs($admin)->patch(route('admin.grupos.atualizar', $grupo), [
+            'nome' => 'Grupo Rodada Editado',
+            'chat_id' => '-100900009',
+            'tipo' => 'supergroup',
+            'modo' => 'aberto',
+            'ordem' => 2,
+        ])->assertRedirect();
+
+        $this->assertSame('aberto', $grupo->refresh()->modo);
+    }
+
+    public function test_concluido_exibe_posicao_e_envio(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '8888']);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Teste', 'chat_id' => '-100900010', 'tipo' => 'supergroup', 'ativo' => true,
+        ]);
+        $agendamento = Agendamento::factory()->create([
+            'user_id' => $usuario->id,
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => 'Visitante x1',
+            'posicao' => 5,
+            'total_grupo_horario' => 12,
+            'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id,
+            'destino_nome' => $grupo->nome,
+            'data_hora_envio' => now()->addDay()->setTime(19, 58),
+            'status' => Agendamento::STATUS_PENDENTE,
+        ]);
+
+        $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.agendamento_id' => $agendamento->id,
+            'agendafacil.codigo_ok' => true,
+            'agendafacil.grupo_ok' => true,
+        ])->get(route('agendafacil.concluido'))
+            ->assertOk()
+            ->assertSee('Grupo confirmado. Pode fechar esta janela.')
+            ->assertSee('5ª de 12');
     }
 }
