@@ -20,6 +20,10 @@
         @endif
         @if (! empty($codigo_enviado_telegram))
             <div class="alert alert-success">Enviamos o código no seu Telegram ({{ config('services.telegram.bot') }}). Confira a conversa com o bot.</div>
+        @elseif (($motivoNaoEnviado ?? null) === 'sem-bot')
+            <div class="alert alert-warning">O bot do Telegram ainda não foi configurado. Avise o responsável pelo sistema.</div>
+        @elseif (($motivoNaoEnviado ?? null) === 'falha-envio')
+            <div class="alert alert-warning">Não conseguimos entregar o código agora. Toque em reenviar para tentar de novo.</div>
         @else
             <div class="alert alert-warning">Conecte seu Telegram e inicie uma conversa com o bot para receber o código por lá.</div>
         @endif
@@ -31,7 +35,10 @@
                     <li>Toque em <strong>Iniciar</strong> (/start);</li>
                     <li>Volte aqui e toque em reenviar.</li>
                 </ol><br>
-                <a href="{{ route('agendafacil.codigo') }}" class="btn-telegram d-inline-block text-decoration-none">Já iniciei — reenviar código →</a>
+                <form method="POST" action="{{ route('agendafacil.codigo.reenviar') }}" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn-telegram">Já iniciei — reenviar código →</button>
+                </form>
             </div></div>
         @endif
         <form method="POST" action="{{ route('agendafacil.codigo.validar') }}">

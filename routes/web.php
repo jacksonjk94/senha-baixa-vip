@@ -35,6 +35,7 @@ Route::get('/confirmar-dados', [AcessoController::class, 'confirmarDados'])->nam
 Route::post('/confirmar-dados', [AcessoController::class, 'salvarConfirmacao'])->name('agendafacil.confirmar-dados.salvar');
 Route::get('/codigo', [AcessoController::class, 'codigo'])->name('agendafacil.codigo');
 Route::post('/codigo', [AcessoController::class, 'validarCodigo'])->name('agendafacil.codigo.validar');
+Route::post('/codigo/reenviar', [AcessoController::class, 'reenviarCodigo'])->name('agendafacil.codigo.reenviar');
 
 // Cadastro externo do visitante (sem auth) → redireciona ao acesso.
 Route::get('/cadastro', [CadastroVisitanteController::class, 'criar'])->name('visitante.cadastro');

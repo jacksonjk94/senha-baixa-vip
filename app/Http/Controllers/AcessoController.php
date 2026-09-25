@@ -140,8 +140,19 @@ class AcessoController extends Controller
                 }
             } else {
                 $request->session()->put('agendafacil.codigo_enviado_telegram', false);
+                Log::warning('Código não enviado: sem destinatário vinculado ou bot não configurado.', [
+                    'tem_visitante' => (bool) $destinatario,
+                    'tem_telegram_id' => filled($destinatario?->telegram_id),
+                    'bot_configurado' => $telegram->configurado(),
+                ]);
             }
         }
+
+        $visitanteAtual = $this->visitanteAtual($request);
+        $conectado = filled($visitanteAtual?->telegram_id) || filled(Auth::user()?->telegram_id);
+        $motivo = $request->session()->get('agendafacil.codigo_enviado_telegram')
+            ? null
+            : (! $telegram->configurado() ? 'sem-bot' : (! $conectado ? 'sem-vinculo' : 'falha-envio'));
 
         return view('agendafacil.codigo', [
             // Em produção o código é enviado pelo bot; em dev exibimos mascarado no log.
@@ -152,9 +163,23 @@ class AcessoController extends Controller
             // Conexão do painel admin para orientar o visitante.
             'botUsername' => $telegram->botUsername(),
             'botConfigurado' => $telegram->configurado(),
-            'visitanteTelegram' => $this->visitanteAtual($request)?->telegram_username,
-            'visitanteConectado' => filled($this->visitanteAtual($request)?->telegram_id) || filled(Auth::user()?->telegram_id),
+            'visitanteTelegram' => $visitanteAtual?->telegram_username,
+            'visitanteConectado' => $conectado,
+            'motivoNaoEnviado' => $motivo,
         ]);
+    }
+
+    /**
+     * Descarta o código atual para gerar e reenviar um novo
+     * (nova vinculação + nova tentativa via bot).
+     */
+    public function reenviarCodigo(Request $request)
+    {
+        $request->session()->forget(['agendafacil.codigo', 'agendafacil.codigo_enviado_telegram']);
+
+        return redirect()
+            ->route('agendafacil.codigo')
+            ->with('sucesso', 'Gerando um novo código e reenviando pelo Telegram...');
     }
 
     public function validarCodigo(Request $request)

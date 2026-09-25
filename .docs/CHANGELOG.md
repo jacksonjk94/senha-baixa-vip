@@ -33,6 +33,7 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 23/09/2026 | 2.5.5 | Fluxo | Tela de conexão Telegram integrada ao layout — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.6.0 | Bots/Login | Bots Telegram gerenciáveis + login sem modal — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.6.1 | Fluxo | Vinculação automática do Telegram na etapa código — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 23/09/2026 | 2.6.2 | Fluxo | Reenvio real do código + motivo visível — ver detalhes abaixo | OpenCode (Muse Spark) |
 
 ---
 
@@ -129,12 +130,18 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 - **Validação**: `php -l` OK; `view:cache` OK (echos `@bot` comprovados no compilado); rotas `admin.telegram-bots.*` OK; suite: 50 passed, 7 falhas pré-existentes (`Example/DeleteAccount/Profile`, confirmadas na árvore limpa).
 
 ### v2.6.1 — Vinculação automática do Telegram na etapa código ✅ (23/09/2026)
-
 - `TelegramBotService::resolverChatIdPorUsername()`: varre `getUpdates` (message/callback/my_chat_member) e descobre o `chat_id` pelo `@username` — usa a conexão do bot padrão do painel admin, sem widget.
 - `AcessoController@codigo`: antes de gerar/enviar, vincula o `telegram_id` automaticamente quando há `@username`; view recebe `botUsername/botConfigurado/visitanteConectado`.
 - `salvarConfirmacao`: visitante com `@username` pula o widget e vai direto ao código.
 - `codigo.blade.php`: sem envio, exibe card com passo a passo (abrir `t.me/<bot>`, `/start`, "Já iniciei — reenviar"), que reexecuta a vinculação.
 - **Validação**: `php -l` OK, `view:cache` OK.
+
+### v2.6.2 — Reenvio real do código + motivo visível ✅ (23/09/2026)
+
+- **Causa**: o código era gerado/enviado uma única vez por sessão; se a primeira tentativa falhasse (bot ainda sem token, vínculo inexistente), recarregar nunca tentava de novo — diferente do teste do admin, que envia direto ao `chat_id` digitado.
+- Nova rota `POST /codigo/reenviar` (`AcessoController@reenviarCodigo`): descarta código/flag e gera um novo com nova vinculação + nova tentativa; botão "Já iniciei — reenviar código" agora é POST real.
+- View exibe o motivo (`sem-bot` / `sem-vinculo` / `falha-envio`) e log registra o contexto da falha.
+- **Validação**: `php -l` OK, `view:cache` OK, `route:list` OK.
 - **Verificação**: `php -l` OK em 9 arquivos; `view:cache` OK (todas as Blade compilam); `route:list` OK (21 rotas `admin.*` + 2 `visitante.*`); `migrate --force` OK do zero incluindo `000021/000022`; suite `php artisan test`: 50 passed — 7 falhas em `ExampleTest/ProfileTest/DeleteAccountTest` **pré-existentes** (confirmado via `git stash`: falham na árvore limpa; rotas `/`→redirect e `/profile` 404 não tocadas por esta versão).
 
 ---
