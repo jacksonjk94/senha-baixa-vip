@@ -164,7 +164,7 @@ var a = String.prototype.replace,
                 }
             return (
                 (function (r) {
-                    for (; r.length > 1; ) {
+                    for (; r.length > 1;) {
                         var t = r.pop(),
                             n = t.obj[t.prop];
                         if (p(n)) {
@@ -411,7 +411,7 @@ var a = String.prototype.replace,
                 if (!n.plainObjects && T.call(Object.prototype, f) && !n.allowPrototypes) return;
                 a.push(f);
             }
-            for (var c = 0; n.depth > 0 && null !== (u = i.exec(o)) && c < n.depth; ) {
+            for (var c = 0; n.depth > 0 && null !== (u = i.exec(o)) && c < n.depth;) {
                 if (
                     ((c += 1),
                     !n.plainObjects &&

@@ -172,7 +172,7 @@
                     }
                 return (
                     (function (t) {
-                        for (; t.length > 1; ) {
+                        for (; t.length > 1;) {
                             var r = t.pop(),
                                 n = r.obj[r.prop];
                             if (p(n)) {
@@ -424,7 +424,7 @@
                         return;
                     a.push(f);
                 }
-                for (var c = 0; n.depth > 0 && null !== (u = i.exec(o)) && c < n.depth; ) {
+                for (var c = 0; n.depth > 0 && null !== (u = i.exec(o)) && c < n.depth;) {
                     if (
                         ((c += 1),
                         !n.plainObjects &&

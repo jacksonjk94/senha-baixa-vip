@@ -66,7 +66,7 @@ var e = String.prototype.replace,
                 }
             return (
                 (function (t) {
-                    for (; t.length > 1; ) {
+                    for (; t.length > 1;) {
                         var e = t.pop(),
                             r = e.obj[e.prop];
                         if (u(r)) {
@@ -313,7 +313,7 @@ var e = String.prototype.replace,
                 if (!r.plainObjects && j.call(Object.prototype, a) && !r.allowPrototypes) return;
                 s.push(a);
             }
-            for (var f = 0; r.depth > 0 && null !== (u = i.exec(o)) && f < r.depth; ) {
+            for (var f = 0; r.depth > 0 && null !== (u = i.exec(o)) && f < r.depth;) {
                 if (
                     ((f += 1),
                     !r.plainObjects &&
