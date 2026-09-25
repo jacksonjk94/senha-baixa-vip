@@ -88,6 +88,39 @@
         [data-theme="dark"] .af-nav a.active { color: var(--af-primary); }
         .af-sidebar-foot { padding: 14px 18px; border-top: 1px solid var(--af-border); font-size: 12px; color: var(--af-muted); }
 
+        /* ── Menu de perfil (rodapé da sidebar) ── */
+        .af-profile { padding: 12px 14px 6px; border-top: 1px solid var(--af-border); }
+        .af-profile-btn {
+            width: 100%; display: flex; align-items: center; gap: 10px;
+            background: transparent; border: 1px solid transparent; border-radius: 12px;
+            padding: 8px 10px; cursor: pointer; color: var(--af-text); text-align: left;
+        }
+        .af-profile-btn:hover { background: var(--af-primary-soft); }
+        .af-avatar {
+            width: 38px; height: 38px; border-radius: 50%; flex: 0 0 38px;
+            background: linear-gradient(135deg, #2AABEE, #1B87B8);
+            color: #fff; font-weight: 800; font-size: 17px;
+            display: inline-flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        .af-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .af-profile-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .af-profile-name { font-weight: 800; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .af-profile-email { font-size: 11.5px; color: var(--af-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .af-profile-caret { color: var(--af-muted); font-size: 12px; }
+        .af-profile-menu {
+            background: var(--af-surface); color: var(--af-text);
+            border: 1px solid var(--af-border); border-radius: 14px;
+            box-shadow: var(--af-shadow); min-width: 220px; padding: 6px;
+        }
+        .af-profile-menu .dropdown-header { color: var(--af-muted); font-size: 12px; }
+        .af-profile-menu .dropdown-item {
+            color: var(--af-text); border-radius: 10px; font-weight: 600; font-size: 14px;
+            padding: 9px 12px; background: transparent; border: 0; width: 100%; text-align: left; cursor: pointer;
+        }
+        .af-profile-menu .dropdown-item:hover { background: var(--af-primary-soft); color: var(--af-text); }
+        .af-profile-menu .dropdown-divider { border-color: var(--af-border); }
+
         /* Desktop colapsada */
         body.af-collapsed .af-sidebar { margin-left: -264px; }
 
@@ -203,6 +236,33 @@
             <a href="{{ route('admin.telegram-bots') }}" class="{{ request()->routeIs('admin.telegram-bots*') ? 'active' : '' }}"><span class="af-ico">📡</span>Bots Telegram</a>
             <a href="{{ route('agendafacil.acesso') }}"><span class="af-ico">←</span>Voltar ao fluxo</a>
         </nav>
+        <div class="af-profile dropup">
+            <button type="button" class="af-profile-btn" data-bs-toggle="dropdown" data-bs-offset="0,8" aria-expanded="false" aria-label="Menu de perfil">
+                <span class="af-avatar">
+                    @if (auth()->user()?->profile_photo_path)
+                        <img src="{{ auth()->user()->profile_photo_url }}" alt="Foto de perfil">
+                    @else
+                        {{ mb_strtoupper(mb_substr(auth()->user()?->name ?? '?', 0, 1)) }}
+                    @endif
+                </span>
+                <span class="af-profile-meta">
+                    <span class="af-profile-name">{{ auth()->user()?->name }}</span>
+                    <span class="af-profile-email">{{ auth()->user()?->email }}</span>
+                </span>
+                <span class="af-profile-caret">▴</span>
+            </button>
+            <ul class="dropdown-menu af-profile-menu">
+                <li><h6 class="dropdown-header">{{ auth()->user()?->name }}<br><span class="af-role">{{ auth()->user()?->role }}</span></h6></li>
+                <li><a class="dropdown-item" href="{{ route('profile.show') }}">👤 Meu perfil</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="dropdown-item">🚪 Sair</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
         <div class="af-sidebar-foot">AgendaFácil</div>
     </aside>
 
