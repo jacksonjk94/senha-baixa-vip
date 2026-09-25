@@ -3,6 +3,7 @@
 use App\Http\Controllers\AcessoController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AgendamentoController;
+use App\Http\Controllers\AjudaController;
 use App\Http\Controllers\CadastroVisitanteController;
 use App\Http\Controllers\ConfiguracaoController;
 use App\Http\Controllers\DisparoController;
@@ -43,6 +44,9 @@ Route::get('/codigo', [AcessoController::class, 'codigo'])->name('agendafacil.co
 Route::post('/codigo', [AcessoController::class, 'validarCodigo'])->name('agendafacil.codigo.validar');
 Route::post('/codigo/reenviar', [AcessoController::class, 'reenviarCodigo'])->name('agendafacil.codigo.reenviar');
 Route::get('/concluido', [AcessoController::class, 'concluido'])->name('agendafacil.concluido');
+
+// Ajuda pública (guest): passo a passo do bot/grupos do Telegram.
+Route::get('/ajuda/bot-telegram', [AjudaController::class, 'botTelegram'])->name('ajuda.bot-telegram');
 
 // Cadastro externo do visitante (sem auth) → redireciona ao acesso.
 Route::get('/cadastro', [CadastroVisitanteController::class, 'criar'])->name('visitante.cadastro');

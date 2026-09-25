@@ -20,6 +20,7 @@ Projeto em Laravel · Curitiba/PR · 2026
 | 25/09/2026 | 2.2.3 | Fluxo único | ✅ Etapa 2: horário do disparo definível (data + hora editáveis, pré-preenchidos com o agendamento ou padrão do admin); salvamento grava `data_hora_envio` com validação de futuro — nunca mais exibe "—" | OpenCode (Muse Spark) |
 | 25/09/2026 | 2.2.4 | Fluxo único | ✅ Etapa 2: sem bloqueio por falta de agendamento — quando não há pré-cadastro, o agendamento é criado na confirmação (grupo + mensagem + horário, status pendente, posição calculada); removido o aviso "Nenhum agendamento vinculado..." e os campos desabilitados | OpenCode (Muse Spark) |
 | 25/09/2026 | 2.2.5 | Auth | ✅ Login/logout via Inertia agora navegam de verdade: `AuthenticatedSessionController` usa `Inertia::location()` (409 + recarregamento total) em vez de 302 para destino Blade — antes o POST terminava em HTML e o cliente abria o modal de erro; logout de form HTML segue com 302 direto ao `/acesso` | OpenCode (Muse Spark) |
+| 25/09/2026 | 2.3.0 | Ajuda | ✅ Página pública `GET /ajuda/bot-telegram` com passo a passo (criar bot no @BotFather, token, username, cadastro no admin, criar grupos, adicionar o bot, vincular `chat_id`, testar envio, segurança do token) + item "📖 Ajuda: Bot Telegram" no menu Sistema da sidebar admin | OpenCode (Muse Spark) |
 
 ---
 
