@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agendamento;
+use App\Models\Configuracao;
 use App\Models\GrupoTelegram;
 use App\Models\User;
 use App\Services\TelegramBotService;
@@ -56,9 +57,9 @@ class AcessoController extends Controller
 
     /**
      * Etapa 2 — Confirmar os dados (conforme print 02.jpeg).
-     * Grupo selecionável e mensagem editável (pré-preenchida no padrão
-     * "Nome + xNÚMERO", ex: "Jackson Dos Santos x40"); horário, tipo
-     * de disparo e telefone são exibidos somente para conferência.
+     * Grupo selecionável, mensagem editável (pré-preenchida no padrão
+     * "Nome + xNÚMERO") e horário do disparo definível; tipo de disparo
+     * e telefone são exibidos somente para conferência.
      */
     public function confirmarDados(Request $request)
     {
@@ -76,11 +77,12 @@ class AcessoController extends Controller
             'agendamento' => $agendamento,
             'grupos' => $grupos,
             'mensagemInicial' => $this->mensagemSugerida($usuario, $agendamento),
+            'horarioPadrao' => Configuracao::horarioDisparo(),
         ]);
     }
 
     /**
-     * Salva grupo + mensagem confirmados e segue para a etapa do código.
+     * Salva grupo + mensagem + horário confirmados e segue para o código.
      * Conexão do bot/grupos já feita no admin.
      */
     public function salvarConfirmacao(Request $request)
@@ -94,12 +96,24 @@ class AcessoController extends Controller
         $dados = $request->validate([
             'grupo_id' => ['required', 'exists:grupo_telegrams,id'],
             'mensagem' => ['required', 'string', 'max:500', 'regex:/x\s*\d+\s*$/i'],
+            'data_envio' => ['required', 'date'],
+            'hora_envio' => ['required', 'date_format:H:i'],
         ], [
             'grupo_id.required' => 'Selecione o grupo.',
             'grupo_id.exists' => 'Grupo selecionado inválido.',
             'mensagem.required' => 'Digite a mensagem (nome + senha).',
             'mensagem.regex' => 'A mensagem deve terminar com a senha no padrão xNÚMERO (ex: Jackson Dos Santos x40).',
+            'data_envio.required' => 'Informe a data do disparo.',
+            'hora_envio.required' => 'Informe o horário do disparo.',
         ]);
+
+        $dataHora = \Carbon\Carbon::parse($dados['data_envio'] . ' ' . $dados['hora_envio']);
+
+        if ($dataHora->isPast()) {
+            return back()
+                ->withErrors(['data_envio' => 'A data/hora do disparo precisa estar no futuro.'])
+                ->withInput();
+        }
 
         $grupo = GrupoTelegram::ativos()->find($dados['grupo_id']);
 
@@ -110,20 +124,36 @@ class AcessoController extends Controller
         }
 
         $agendamento = $this->agendamentoAtual($request, $usuario);
-
-        if (! $agendamento) {
-            return back()->with('aviso', 'Nenhum agendamento vinculado a este telefone. Fale com a administração.');
-        }
-
         $mensagem = trim($dados['mensagem']);
 
-        $agendamento->update([
-            'grupo_telegram_id' => $grupo->id,
-            'destino_tipo' => Agendamento::DESTINO_GRUPO,
-            'destino_id' => (string) $grupo->chat_id,
-            'destino_nome' => $grupo->nome,
-            'texto' => $mensagem,
-        ]);
+        if (! $agendamento) {
+            // O agendamento é definido no momento da confirmação:
+            // cria com grupo + mensagem + horário confirmados.
+            $agendamento = Agendamento::create([
+                'user_id' => $usuario->id,
+                'grupo_telegram_id' => $grupo->id,
+                'nome_visitante' => $usuario->name,
+                'senha_codigo' => static::gerarSenhaCodigo(),
+                'texto' => $mensagem,
+                'posicao' => Agendamento::proximaPosicao($grupo->id, $dataHora),
+                'total_grupo_horario' => Agendamento::totalGrupoHorario($grupo->id, $dataHora) + 1,
+                'destino_tipo' => Agendamento::DESTINO_GRUPO,
+                'destino_id' => (string) $grupo->chat_id,
+                'destino_nome' => $grupo->nome,
+                'data_hora_envio' => $dataHora,
+                'status' => Agendamento::STATUS_PENDENTE,
+                'ip_origem' => $request->ip(),
+            ]);
+        } else {
+            $agendamento->update([
+                'grupo_telegram_id' => $grupo->id,
+                'destino_tipo' => Agendamento::DESTINO_GRUPO,
+                'destino_id' => (string) $grupo->chat_id,
+                'destino_nome' => $grupo->nome,
+                'texto' => $mensagem,
+                'data_hora_envio' => $dataHora,
+            ]);
+        }
 
         $request->session()->put('agendafacil.agendamento_id', $agendamento->id);
         // Mantém compat com etapas antigas que liam esta chave.

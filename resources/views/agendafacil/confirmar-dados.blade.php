@@ -15,14 +15,10 @@
         <p class="text-uppercase fw-bold small mb-1" style="color:#0B6B4F;letter-spacing:.04em">Login Telegram</p>
         <h1 class="h4 mb-3">Confirmar dados</h1>
 
-        @if (! $agendamento)
-            <div class="alert alert-warning">Nenhum agendamento vinculado a este telefone. Fale com a administração.</div>
-        @endif
-
         <form method="POST" action="{{ route('agendafacil.confirmar-dados.salvar') }}">
             @csrf
             <label class="form-label fw-semibold" for="grupo_id">Nome do grupo</label>
-            <select id="grupo_id" name="grupo_id" class="input-telegram" required @if(! $agendamento) disabled @endif>
+            <select id="grupo_id" name="grupo_id" class="input-telegram" required>
                 @foreach ($grupos as $grupo)
                     <option value="{{ $grupo->id }}" @selected((string) old('grupo_id', $agendamento?->grupo_telegram_id) === (string) $grupo->id)>{{ $grupo->nome }}</option>
                 @endforeach
@@ -32,13 +28,26 @@
             <label class="form-label fw-semibold mt-3" for="mensagem">Mensagem</label>
             <input id="mensagem" name="mensagem" class="input-telegram" maxlength="500"
                    value="{{ old('mensagem', $mensagemInicial) }}"
-                   data-nome="{{ $agendamento?->nome_visitante ?: $usuario->name }}" required @if(! $agendamento) disabled @endif>
+                   data-nome="{{ $agendamento?->nome_visitante ?: $usuario->name }}" required>
             @error('mensagem')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
 
-            <div class="border rounded p-3 my-3" style="border-color:#D8ECF7;background:#F8FBFD">
-                <p class="text-muted small mb-0">Horário</p>
-                <p class="fw-bold mb-2">{{ $agendamento?->data_hora_envio?->format('H:i') ?? '—' }}</p>
+            <label class="form-label fw-semibold mt-3">Horário do disparo</label>
+            <div class="row g-2">
+                <div class="col-6">
+                    <input type="date" name="data_envio" class="input-telegram"
+                           value="{{ old('data_envio', $agendamento?->data_hora_envio?->format('Y-m-d') ?? date('Y-m-d')) }}"
+                           required>
+                </div>
+                <div class="col-6">
+                    <input type="time" name="hora_envio" class="input-telegram"
+                           value="{{ old('hora_envio', $agendamento?->data_hora_envio?->format('H:i') ?? $horarioPadrao) }}"
+                           required>
+                </div>
+            </div>
+            @error('data_envio')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+            @error('hora_envio')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
 
+            <div class="border rounded p-3 my-3" style="border-color:#D8ECF7;background:#F8FBFD">
                 <p class="text-muted small mb-0">Tipo de disparo</p>
                 <p class="fw-bold mb-2">{{ $agendamento?->dados_senha ?? ($agendamento?->destino_tipo === 'pessoa' ? 'Individual' : 'Grupo') }}</p>
 
@@ -50,7 +59,7 @@
                 Ao confirmar, você declara que é responsável pelos dados confirmados.
             </div>
 
-            <button type="submit" class="btn-telegram" @if(! $agendamento) disabled @endif>Confirmar dados</button>
+            <button type="submit" class="btn-telegram">Confirmar dados</button>
         </form>
     </div>
 </div>

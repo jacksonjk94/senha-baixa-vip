@@ -151,10 +151,14 @@ class AgendaFacilFlowTest extends TestCase
             'status' => Agendamento::STATUS_PENDENTE,
         ]);
 
+        $quando = now()->addDay()->setTime(21, 0);
+
         $resposta = $this->withSession(['agendafacil.visitante_id' => $usuario->id])
             ->post(route('agendafacil.confirmar-dados.salvar'), [
                 'grupo_id' => $grupoNovo->id,
                 'mensagem' => 'Jackson Dos Santos x40',
+                'data_envio' => $quando->toDateString(),
+                'hora_envio' => $quando->format('H:i'),
             ]);
 
         $resposta->assertRedirect(route('agendafacil.codigo'));
@@ -164,6 +168,75 @@ class AgendaFacilFlowTest extends TestCase
             'grupo_telegram_id' => $grupoNovo->id,
             'texto' => 'Jackson Dos Santos x40',
             'destino_id' => $grupoNovo->chat_id,
+            'data_hora_envio' => $quando->format('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function test_salvar_confirmacao_rejeita_horario_no_passado(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '4333']);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Teste',
+            'chat_id' => '-100000004',
+            'tipo' => 'supergroup',
+            'ativo' => true,
+        ]);
+        Agendamento::factory()->create([
+            'user_id' => $usuario->id,
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => 'Visitante x1',
+            'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id,
+            'destino_nome' => $grupo->nome,
+            'data_hora_envio' => now()->addHour(),
+            'status' => Agendamento::STATUS_PENDENTE,
+        ]);
+
+        $passado = now()->subHour();
+
+        $resposta = $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.confirmar-dados.salvar'), [
+                'grupo_id' => $grupo->id,
+                'mensagem' => 'Jackson Dos Santos x40',
+                'data_envio' => $passado->toDateString(),
+                'hora_envio' => $passado->format('H:i'),
+            ]);
+
+        $resposta->assertSessionHasErrors('data_envio');
+    }
+
+    public function test_salvar_confirmacao_cria_agendamento_quando_ainda_nao_existe(): void
+    {
+        $usuario = User::factory()->create([
+            'name' => 'Jackson Dos Santos',
+            'ultimos_digitos_telefone' => '4344',
+        ]);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Senha normal P1 e Ala',
+            'chat_id' => '-100777888',
+            'tipo' => 'supergroup',
+            'ativo' => true,
+        ]);
+        $quando = now()->addDay()->setTime(21, 0);
+
+        $this->assertDatabaseCount('agendamentos', 0);
+
+        $resposta = $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.confirmar-dados.salvar'), [
+                'grupo_id' => $grupo->id,
+                'mensagem' => 'Jackson Dos Santos x40',
+                'data_envio' => $quando->toDateString(),
+                'hora_envio' => $quando->format('H:i'),
+            ]);
+
+        $resposta->assertRedirect(route('agendafacil.codigo'));
+        $this->assertDatabaseHas('agendamentos', [
+            'user_id' => $usuario->id,
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => 'Jackson Dos Santos x40',
+            'destino_id' => $grupo->chat_id,
+            'data_hora_envio' => $quando->format('Y-m-d H:i:s'),
+            'status' => Agendamento::STATUS_PENDENTE,
         ]);
     }
 
@@ -191,6 +264,8 @@ class AgendaFacilFlowTest extends TestCase
             ->post(route('agendafacil.confirmar-dados.salvar'), [
                 'grupo_id' => $grupo->id,
                 'mensagem' => 'Jackson Dos Santos',
+                'data_envio' => now()->addDay()->toDateString(),
+                'hora_envio' => '21:00',
             ]);
 
         $resposta->assertSessionHasErrors('mensagem');
