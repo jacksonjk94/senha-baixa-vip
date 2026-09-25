@@ -1,0 +1,33 @@
+[09:32, 24/09/2026] Jackson: Bom dia, tudo bem
+[09:33, 24/09/2026] Jackson: Mais a tarde vou te passa um link para teste e para ir ajustando algumas coisas no fluxo do bot
+[09:33, 24/09/2026] +55 13 98138-8690: Que legal kk
+[10:36, 24/09/2026] Jackson: Para deixar tudo certinho e desenvolver exatamente como você precisa, confirma esses pontos pra mim?
+[10:36, 24/09/2026] Jackson: 1: O cadastro dos dados das pessoas é feito por você (administração) ou a pessoa se cadastra sozinha?
+[10:36, 24/09/2026] Jackson: 2: A senha vai ser número sequencial tipo 001, 002... ou código misto com letras e números?
+[10:37, 24/09/2026] Jackson: 3: O envio da senha você quer programado para um horário específico ou sai na hora que agenda?
+[10:37, 24/09/2026] Jackson: 4: No Telegram: cada conta vai usar 1 grupo fixo ou pode escolher entre vários grupos?
+[10:38, 24/09/2026] +55 13 98138-8690: Tem como me explicar melhor kmk
+[10:38, 24/09/2026] +55 13 98138-8690: [MARCAÇÃO MSG RESPOS: "4: No Telegram:..."]: Esse
+[10:39, 24/09/2026] Jackson: 5: Quando a mensagem vai para o grupo, é importante que apareça o nome da pessoa junto?
+[10:39, 24/09/2026] +55 13 98138-8690: Tem como me ligar aqui
+[10:41, 24/09/2026] +55 13 98138-8690: [MARCAÇÃO MSG RESPOS: "1: O cadastro dos dados das pessoas é feito ..."] [AUDIO TRANSC. 0:18s: "Ó, tipo assim, vamos por partes, esse daí é tipo assim, a pessoa me manda os dados e eu cadastro sozinha,  ou então você vai fazer um link que a pessoa vai se cadastrar lá e já vai ficar o, como é que fala?  Já vai ficar programado, é isso? Pra me entender melhor."]
+[10:41, 24/09/2026] +55 13 98138-8690: [MARCAÇÃO MSG RESPOS: "2: A senha vai ser número sequencial tipo 001..."] [AUDIO TRANSC. 0:04s: "Esse daqui é senha do quê?  Isso daqui."]
+[10:43, 24/09/2026] Jackson: [MARCAÇÃO MSG RESPOS: "AUDIO TRANSC. 0:18s"]: Isso
+[10:46, 24/09/2026] Jackson: [MARCAÇÃO MSG RESPOS: "AUDIO TRANSC. 0:04s"]: A senha gerada pela automação, aquele número/código que a pessoa precisa apresentar no dia da visita
+[10:46, 24/09/2026] +55 13 98138-8690: [MARCAÇÃO MSG RESPOS: "A senha gerada pela automação, aquele número/código..."] [AUDIO TRANSC. 0:15s: "Não, pô, porque, tipo assim, quando a pessoa tirar a senha no Telegram, aí vai subir só o nome da pessoa, tipo Roberta e Alison X37.  Aí, tipo, é isso aí que o robô vai mandar pro grupo no Telegram, entendeu?"]
+[10:47, 24/09/2026] +55 13 98138-8690: [AUDIO TRANSC. 0:07s: "Lá na hora da senha, no presídio, não precisa apresentar nada,  porque a senha já foi tirada no Telegram e as meninas montam o caderno."]
+[10:47, 24/09/2026] +55 13 98138-8690: PRINT: "WhatsApp Image 2026-09-24 at 10.47.09.jpeg"
+[10:47, 24/09/2026] +55 13 98138-8690: [AUDIO TRANSC. 0:07s: "Ó, que nem essa menina aí, ó, ela manda o link da senha e a gente cadastra, eu vou fazer aqui pra você ver, peraí."]
+[10:47, 24/09/2026] +55 13 98138-8690: PRINT: "WhatsApp Image 2026-09-24 at 10.47.40.jpeg"
+[10:48, 24/09/2026] +55 13 98138-8690: [AUDIO TRANSC. 0:11s: "Nessa da menina aí, do link direto, assim que você agenda, aí você já coisa tudo, entendeu?  Olha aí, vê aí que você entende melhor, porque eu não tô sabendo explicar."]
+[10:48, 24/09/2026] +55 13 98138-8690: [AUDIO TRANSC. 0:21s: "Tipo assim, na hora que eu solicito, que eu clico no e-mail, nesse e-mail que ela me mandou, aí eu já vou agendar, né, aí eu acho que eu tenho que colocar o grupo, que eu vou tirar a senha, o dia, a hora e o meu nome, que vai ser a mensagem que o robô vai ter que enviar para o Telegram, entendeu?"]
+[10:49, 24/09/2026] +55 13 98138-8690: [AUDIO TRANSC. 0:12s: "Porque tem outra menina que eu tiro, eu tenho que entrar no Telegram, eu tenho que logar uma hora antes.  Só que dessa outra aí é melhor que já faz tudo de uma vez.  Na hora que ela manda o link, eu já cadastro e já fica de boa, entendeu?"]
+[10:53, 24/09/2026] +55 13 98138-8690: PRINT: "WhatsApp Image 2026-09-24 at 10.53.38.jpeg"
+[10:53, 24/09/2026] +55 13 98138-8690: [AUDIO TRANSC. 0:16s: "Aí na hora que ela me manda o link, aí eu escolho o grupo, tudo certinho, boto o rascunho, entendeu?  O rascunho lá, e já fica já agendado já.  Que da outra menina eu precisava entrar uma hora antes pra fazer tudo isso, entendeu?"]
+[11:00, 24/09/2026] +55 13 98138-8690: ?
+[11:07, 24/09/2026] +55 13 98138-8690: Deu pra entender mais o menos
+[11:08, 24/09/2026] +55 13 98138-8690: PRINT: "WhatsApp Image 2026-09-24 at 11.08.13.jpeg"
+[11:08, 24/09/2026] +55 13 98138-8690: [AUDIO TRANSC. 0:26s: "Tá vendo aí, ó, esse daí foi o robô que tirou pra mim semana passada, da menina que eu comprei.  Aí, ó, Roberto e Alison X8.  Aí, ó, tá vendo, eu fui em primeiro.  Esse é o rascunho que a pessoa programa pro robô enviar pro Telegram.  Aí eu não preciso de mais nada pra apresentar lá na porta, no dia da visita.  Porque aí elas vão montar o caderno e aí eu fiquei em primeiro, tá vendo?  Que em cima tem 8,59, essas que tirou em 8,59 elas queimaram.  No caso, eu fui a primeira."]
+[11:13, 24/09/2026] Jackson: Sim, vou fazer mais uns ajuste aqui dai já te passo um link para você ver.
+[11:15, 24/09/2026] +55 13 98138-8690: [MARCAÇÃO MSG RESPOS: "Sim, vou fazer mais uns ajuste aqui dai já..."]: Combinado
+
