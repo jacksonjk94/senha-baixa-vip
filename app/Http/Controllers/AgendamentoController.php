@@ -157,4 +157,124 @@ class AgendamentoController extends Controller
     {
         return view('agendafacil.concluido', compact('agendamento'));
     }
+
+    // ── SenhaBaixa v2 · fluxo público simplificado (sem login, sem Telegram) ──
+
+    /**
+     * Tela inicial: apresentação + botão "Agendar agora".
+     */
+    public function inicio()
+    {
+        return view('senhabaixa.inicio');
+    }
+
+    /**
+     * Formulário público: grupo + data/hora + texto livre.
+     */
+    public function agendar()
+    {
+        return view('senhabaixa.agendar', [
+            'grupos' => GrupoTelegram::ativos()->ordenados()->get(),
+            'modoDisparo' => Configuracao::modoDisparo(),
+            'horarioPadrao' => Configuracao::horarioDisparo(),
+        ]);
+    }
+
+    /**
+     * Salva o agendamento (pendente) com posição por grupo+horário.
+     */
+    public function salvar(Request $request)
+    {
+        $disparoImediato = Configuracao::modoDisparo() === 'imediato';
+
+        $regras = [
+            'grupo_telegram_id' => ['required', 'exists:grupo_telegrams,id'],
+            'texto' => ['required', 'string', 'max:500'],
+        ];
+
+        if ($disparoImediato) {
+            $regras['data_envio'] = ['nullable', 'date'];
+            $regras['hora_envio'] = ['nullable', 'date_format:H:i'];
+        } else {
+            $regras['data_envio'] = ['required', 'date'];
+            $regras['hora_envio'] = ['required', 'date_format:H:i'];
+        }
+
+        $dados = $request->validate($regras, [
+            'grupo_telegram_id.required' => 'Escolha o grupo de destino.',
+            'grupo_telegram_id.exists' => 'Grupo inválido.',
+            'texto.required' => 'Digite o texto que vai aparecer no grupo.',
+        ]);
+
+        $grupo = GrupoTelegram::ativos()->find($dados['grupo_telegram_id']);
+
+        if (! $grupo) {
+            return back()
+                ->withErrors(['grupo_telegram_id' => 'Grupo indisponível no momento.'])
+                ->withInput();
+        }
+
+        $dataHora = $disparoImediato
+            ? now()->addMinute()
+            : \Carbon\Carbon::parse($dados['data_envio'] . ' ' . $dados['hora_envio']);
+
+        if (! $disparoImediato && $dataHora->isPast()) {
+            return back()
+                ->withErrors(['data_envio' => 'A data/hora do envio precisa estar no futuro.'])
+                ->withInput();
+        }
+
+        $agendamento = Agendamento::create([
+            'user_id' => Auth::id(),
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => $dados['texto'],
+            'posicao' => Agendamento::proximaPosicao($grupo->id, $dataHora),
+            'destino_tipo' => Agendamento::DESTINO_GRUPO,
+            'destino_id' => (string) $grupo->chat_id,
+            'destino_nome' => $grupo->nome,
+            'data_hora_envio' => $dataHora,
+            'status' => Agendamento::STATUS_PENDENTE,
+            'ip_origem' => $request->ip(),
+        ]);
+
+        // Histórico do visitante (sem login): guarda os ids na sessão.
+        $meus = $request->session()->get('senhabaixa.meus_ids', []);
+        array_unshift($meus, $agendamento->id);
+        $request->session()->put('senhabaixa.meus_ids', array_slice(array_unique($meus), 0, 50));
+
+        if ($disparoImediato) {
+            EnviarSenhaTelegram::dispatchSync($agendamento->id);
+            $agendamento->refresh();
+        }
+
+        return redirect()->route('agendamento.confirmacao', $agendamento);
+    }
+
+    /**
+     * Confirmação: "Agendado ✅ — Envia dia XX às HHh — Posição: X de Y".
+     */
+    public function confirmacao(Agendamento $agendamento)
+    {
+        $total = $agendamento->grupo_telegram_id
+            ? Agendamento::totalGrupoHorario($agendamento->grupo_telegram_id, $agendamento->data_hora_envio)
+            : 1;
+
+        return view('senhabaixa.confirmacao', compact('agendamento', 'total'));
+    }
+
+    /**
+     * Meus agendamentos (histórico da sessão, sem login).
+     */
+    public function meus(Request $request)
+    {
+        $ids = $request->session()->get('senhabaixa.meus_ids', []);
+
+        $agendamentos = Agendamento::query()
+            ->whereIn('id', $ids)
+            ->with('grupo')
+            ->latest()
+            ->get();
+
+        return view('senhabaixa.meus', compact('agendamentos'));
+    }
 }

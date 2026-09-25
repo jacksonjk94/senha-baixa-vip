@@ -22,7 +22,10 @@
             @error('email')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
 
             <label class="form-label fw-semibold mt-3" for="telefone">Telefone / WhatsApp</label>
-            <input id="telefone" name="telefone" class="input-telegram" maxlength="30" placeholder="+55 41 98843-2148" value="{{ old('telefone') }}" required>
+            <div class="input-group">
+                <span class="input-group-text">+55</span>
+                <input id="telefone" name="telefone" class="form-control input-telegram" maxlength="30" placeholder="(13) 98138-8690" value="{{ old('telefone') }}" required>
+            </div>
             @error('telefone')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
 
             <button type="submit" class="btn-telegram mt-3">Cadastrar e continuar →</button>

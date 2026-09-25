@@ -34,6 +34,8 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 23/09/2026 | 2.6.0 | Bots/Login | Bots Telegram gerenciáveis + login sem modal — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.6.1 | Fluxo | Vinculação automática do Telegram na etapa código — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 23/09/2026 | 2.6.2 | Fluxo | Reenvio real do código + motivo visível — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 24/09/2026 | 2.7.0 | SenhaBaixa v2 | Fluxo público simplificado (posição, texto livre, cancelar) + botões com gradiente — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 24/09/2026 | 2.7.1 | SenhaBaixa v2 | Complemento Postgres (coluna ordem) — ver detalhes abaixo | OpenCode (Muse Spark) |
 
 ---
 
@@ -142,6 +144,23 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 - Nova rota `POST /codigo/reenviar` (`AcessoController@reenviarCodigo`): descarta código/flag e gera um novo com nova vinculação + nova tentativa; botão "Já iniciei — reenviar código" agora é POST real.
 - View exibe o motivo (`sem-bot` / `sem-vinculo` / `falha-envio`) e log registra o contexto da falha.
 - **Validação**: `php -l` OK, `view:cache` OK, `route:list` OK.
+
+### v2.7.0 — SenhaBaixa v2: fluxo público simplificado ✅ (24/09/2026)
+
+Conforme `PROMPT-IMPLEMENTACAO-v2.md` (fluxo antigo em `/acesso` preservado; v2 em paralelo).
+
+- **Banco** (`000024`): `texto/posicao/total_grupo_horario/ip_origem`, `user_id` nullable, status `cancelado` (rebuild no SQLite pelo CHECK do enum; ALTERs no MySQL), `grupo_telegrams.ordem`.
+- **Fluxo público** (sem login, sem Telegram): `/` apresentação + Agendar agora; `/agendar` (grupo ativo ordenado + data/hora futura + texto livre); `/agendamento/{id}/confirmacao` ("Agendado ✅ — dia XX às HHh — Posição: X de Y"); `/meus-agendamentos` (histórico por sessão). Posição = ordem no mesmo grupo+minuto (cancelados fora); respeita modo imediato/agendado das Configurações.
+- **Disparo**: `textoMensagem()` envia o texto exato; scheduler+job validados (só `pendente` vencido; cancelado nunca).
+- **Admin**: cancelar (bloqueia já-enviado), campo ordem, filtro/badge `cancelado`, listas ordenadas por ordem.
+- **Botões azuis**: gradiente `135deg #2AABEE→#1B87B8` + hover (eleva/brilho/sombra) + active press (`scale(.98)`, toque) + `focus-visible` — em `telegram.css` e no layout.
+- **Seed Vercel** regenerado com o novo schema.
+- **Validação**: `php -l` OK; `view:cache` OK; rotas `inicio/agendar/agendamento.*` OK; migrate do zero OK; 7 checks funcionais v2 OK; suite 51 passed, 6 falhas pré-existentes (sem relação).
+
+### v2.7.1 — Complemento Postgres ✅ (24/09/2026)
+
+- **500 `column "ordem" does not exist` no `/agendar` (pgsql)**: migration `000025` idempotente — `ordem` + `texto/posicao/total/ip`, `user_id` nullable, status enum→`VARCHAR` (aceita `cancelado`); já aplicada neste banco (`migrate --force` OK, smoke test OK).
+- **Validação**: `php -l` OK; `GrupoTelegram::ativos()->ordenados()` e `proximaPosicao()` OK no pgsql.
 - **Verificação**: `php -l` OK em 9 arquivos; `view:cache` OK (todas as Blade compilam); `route:list` OK (21 rotas `admin.*` + 2 `visitante.*`); `migrate --force` OK do zero incluindo `000021/000022`; suite `php artisan test`: 50 passed — 7 falhas em `ExampleTest/ProfileTest/DeleteAccountTest` **pré-existentes** (confirmado via `git stash`: falham na árvore limpa; rotas `/`→redirect e `/profile` 404 não tocadas por esta versão).
 
 ---

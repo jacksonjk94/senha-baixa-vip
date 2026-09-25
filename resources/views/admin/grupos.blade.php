@@ -11,9 +11,10 @@
 <div class="card stat-card my-3"><div class="card-body">
 <form method="POST" action="{{ route('admin.grupos.salvar') }}" class="row g-2">
     @csrf
-    <div class="col-md-5"><input name="nome" class="form-control" placeholder="Nome do grupo" required></div>
+    <div class="col-md-4"><input name="nome" class="form-control" placeholder="Nome do grupo" required></div>
     <div class="col-md-3"><input name="chat_id" class="form-control" placeholder="chat_id (ex.: -100123...)" required></div>
     <div class="col-md-2"><select name="tipo" class="form-select"><option value="group">group</option><option value="supergroup">supergroup</option><option value="channel">channel</option></select></div>
+    <div class="col-md-1"><input name="ordem" type="number" min="0" max="9999" class="form-control" placeholder="ordem" title="Ordem de exibição"></div>
     <div class="col-md-2"><button class="btn btn-primary w-100">Adicionar</button></div>
 </form>
 </div></div>

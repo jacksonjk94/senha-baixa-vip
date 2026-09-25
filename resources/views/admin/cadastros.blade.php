@@ -46,7 +46,7 @@
             <div class="modal-body d-grid gap-3">
                 <div><label class="form-label fw-semibold">Nome *</label><input name="name" class="form-control" maxlength="120" required></div>
                 <div><label class="form-label fw-semibold">E-mail *</label><input name="email" type="email" class="form-control" maxlength="190" required></div>
-                <div><label class="form-label fw-semibold">Telefone *</label><input name="telefone" class="form-control" maxlength="30" placeholder="+55 41 98843-2148" required><small class="text-muted">Os 4 últimos dígitos são calculados automaticamente.</small></div>
+                <div><label class="form-label fw-semibold">Telefone *</label><div class="input-group"><span class="input-group-text">+55</span><input name="telefone" class="form-control" maxlength="30" placeholder="(13) 98138-8690" required></div><small class="text-muted">Os 4 últimos dígitos são calculados automaticamente.</small></div>
                 <div><label class="form-label fw-semibold">Telegram (usuário)</label><input name="telegram_username" class="form-control" maxlength="60" placeholder="usuario_telegram"></div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary">Cadastrar</button></div>

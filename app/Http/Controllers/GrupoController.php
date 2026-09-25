@@ -2,89 +2,75 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Agendamento;
 use App\Models\GrupoTelegram;
-use App\Models\TelegramBot;
-use App\Services\TelegramBotService;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class GrupoController extends Controller
 {
     /**
-     * Etapa 5 — Lista grupos disponíveis (API Telegram + cadastrados).
+     * Etapa 4 — Confirmar o grupo (prints 06/07.jpeg).
+     * Exibe SOMENTE o grupo do agendamento confirmado na etapa 2,
+     * com o botão "Eu confirmo que esse grupo é o correto".
+     * Exige etapas 1–3 concluídas (visitante + código ok).
      */
-    public function selecionar(Request $request, TelegramBotService $telegram)
+    public function selecionar(Request $request)
     {
-        $busca = trim((string) $request->query('busca', ''));
-        $viaApi = $telegram->listarGrupos();
+        $visitante = $this->visitanteAtual($request);
 
-        // Persiste grupos vindos da API para o dono do fluxo (logado ou visitante).
-        // Evita duplicar chat_id por usuário.
-        $usuarioId = Auth::id() ?? $request->session()->get('agendafacil.visitante_id');
-        foreach ($viaApi as $grupoApi) {
-            GrupoTelegram::firstOrCreate(
-                [
-                    'chat_id' => $grupoApi['chat_id'],
-                    'usuario_id' => $usuarioId,
-                ],
-                [
-                    'nome' => $grupoApi['nome'],
-                    'tipo' => $grupoApi['tipo'],
-                    'ativo' => true,
-                ]
-            );
+        if (! $visitante) {
+            return redirect()->route('agendafacil.acesso');
         }
 
-        $query = GrupoTelegram::query()->where('ativo', true);
-
-        if ($busca !== '') {
-            $query->where('nome', 'like', "%{$busca}%");
+        if (! $request->session()->get('agendafacil.codigo_ok')) {
+            return redirect()->route('agendafacil.codigo');
         }
 
-        $grupos = $query->orderBy('nome')->paginate(12)->withQueryString();
+        $agendamento = $this->agendamentoAtual($request, $visitante);
+        $grupo = $agendamento?->grupo;
 
-        $telegramStatus = $telegram->configurado() ? $telegram->testarConexao() : null;
+        if (! $grupo) {
+            return redirect()
+                ->route('agendafacil.confirmar-dados')
+                ->with('aviso', 'Nenhum grupo vinculado ao seu agendamento. Confira os dados.');
+        }
 
         return view('agendafacil.selecionar-grupo', [
-            'grupos' => $grupos,
-            'busca' => $busca,
-            'telegramConfigurado' => $telegram->configurado(),
-            'telegramBot' => (string) (TelegramBot::defaultBot()?->username ?? config('services.telegram.bot', '')),
-            'telegramStatus' => $telegramStatus,
+            'grupo' => $grupo,
+            'agendamento' => $agendamento,
         ]);
     }
 
     /**
-     * Etapa 6 — Confirmação visual do grupo escolhido.
+     * Confirma o grupo exibido e conclui o fluxo (etapa 5).
      */
     public function confirmar(Request $request)
     {
+        $visitante = $this->visitanteAtual($request);
+
+        if (! $visitante) {
+            return redirect()->route('agendafacil.acesso');
+        }
+
+        if (! $request->session()->get('agendafacil.codigo_ok')) {
+            return redirect()->route('agendafacil.codigo');
+        }
+
+        $agendamento = $this->agendamentoAtual($request, $visitante);
+
         $dados = $request->validate([
-            'destino_tipo' => ['required', 'in:grupo,pessoa'],
-            'grupo_id' => ['required_if:destino_tipo,grupo', 'nullable', 'exists:grupo_telegrams,id'],
+            'grupo_id' => ['required', 'exists:grupo_telegrams,id'],
         ], [
-            'destino_tipo.required' => 'Escolha o tipo de destino.',
-            'destino_tipo.in' => 'Tipo de destino inválido.',
-            'grupo_id.required_if' => 'Selecione um grupo para continuar.',
+            'grupo_id.required' => 'Confirme o grupo para continuar.',
             'grupo_id.exists' => 'Grupo selecionado inválido.',
         ]);
 
-        // Envio individual não exige grupo: usa o chat do próprio usuário.
-        if ($dados['destino_tipo'] === 'pessoa') {
-            $request->session()->put('agendafacil.grupo', [
-                'destino_tipo' => 'pessoa',
-                'grupo_id' => null,
-                'destino_nome' => 'Chat individual',
-            ]);
+        $grupo = GrupoTelegram::find($dados['grupo_id']);
 
-            return redirect()->route('agendamento.novo');
-        }
-
-        $grupo = GrupoTelegram::find($dados['grupo_id'] ?? null);
-
-        if (! $grupo) {
+        if ($agendamento?->grupo_telegram_id && (int) $grupo->id !== (int) $agendamento->grupo_telegram_id) {
             return back()
-                ->withErrors(['grupo_id' => 'Selecione um grupo válido para continuar.'])
+                ->withErrors(['grupo_id' => 'Este não é o grupo do seu agendamento.'])
                 ->withInput();
         }
 
@@ -94,16 +80,47 @@ class GrupoController extends Controller
             'destino_id' => $grupo->chat_id,
             'destino_nome' => $grupo->nome,
         ]);
+        $request->session()->put('agendafacil.grupo_ok', true);
 
-        return view('agendafacil.confirmar-grupo', compact('grupo'));
+        return redirect()->route('agendafacil.concluido');
     }
 
+    /**
+     * Legado (fluxo antigo com agendamento manual): mantido oculto,
+     * fora do fluxo único — apenas redireciona ao concluído.
+     */
     public function confirmarGrupoFinal(Request $request)
     {
         if (! $request->session()->get('agendafacil.grupo')) {
             return redirect()->route('grupos.selecionar');
         }
 
-        return redirect()->route('agendamento.novo');
+        return redirect()->route('agendafacil.concluido');
+    }
+
+    protected function visitanteAtual(Request $request): ?User
+    {
+        $id = $request->session()->get('agendafacil.visitante_id');
+
+        return $id ? User::find($id) : null;
+    }
+
+    protected function agendamentoAtual(Request $request, User $usuario): ?Agendamento
+    {
+        $idSessao = $request->session()->get('agendafacil.agendamento_id');
+
+        if ($idSessao) {
+            $daSessao = Agendamento::with('grupo')->find($idSessao);
+
+            if ($daSessao && (int) $daSessao->user_id === (int) $usuario->id) {
+                return $daSessao;
+            }
+        }
+
+        return Agendamento::with('grupo')
+            ->where('user_id', $usuario->id)
+            ->orderByRaw("CASE WHEN status = 'pendente' THEN 0 ELSE 1 END")
+            ->latest('data_hora_envio')
+            ->first();
     }
 }

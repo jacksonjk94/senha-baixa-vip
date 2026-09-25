@@ -63,7 +63,7 @@ class AdminController extends Controller
         User::create([
             'name' => $dados['name'],
             'email' => $dados['email'],
-            'telefone' => $dados['telefone'],
+            'telefone' => $this->telefoneComDdi($dados['telefone']),
             'telegram_username' => $dados['telegram_username'] ?? null,
             'password' => Hash::make(Str::random(16)),
             'role' => 'user',
@@ -91,7 +91,7 @@ class AdminController extends Controller
         $visitante->update([
             'name' => $dados['name'],
             'email' => $dados['email'],
-            'telefone' => $dados['telefone'],
+            'telefone' => $this->telefoneComDdi($dados['telefone']),
             'telegram_username' => $dados['telegram_username'] ?? null,
             'active' => $request->boolean('active', true),
         ]);
@@ -162,7 +162,7 @@ class AdminController extends Controller
             'email' => $dados['email'],
             'password' => Hash::make($dados['password']),
             'role' => $dados['role'],
-            'telefone' => $dados['telefone'] ?? null,
+            'telefone' => filled($dados['telefone'] ?? null) ? $this->telefoneComDdi($dados['telefone']) : null,
             'can_manage_admins' => $ator->can_manage_admins && $request->boolean('can_manage_admins'),
             'active' => $request->boolean('active', true),
         ]);
@@ -195,7 +195,7 @@ class AdminController extends Controller
             'name' => $dados['name'],
             'email' => $dados['email'],
             'role' => $dados['role'],
-            'telefone' => $dados['telefone'] ?? null,
+            'telefone' => filled($dados['telefone'] ?? null) ? $this->telefoneComDdi($dados['telefone']) : null,
             'active' => $request->boolean('active', true),
         ]);
 
@@ -248,6 +248,7 @@ class AdminController extends Controller
     public function grupos(Request $request, TelegramBotService $telegram)
     {
         $grupos = GrupoTelegram::with('usuario')
+            ->orderBy('ordem')
             ->orderBy('nome')
             ->paginate(15);
 
@@ -267,11 +268,12 @@ class AdminController extends Controller
             'nome' => ['required', 'string', 'max:150'],
             'chat_id' => ['required', 'string', 'max:60'],
             'tipo' => ['required', 'in:group,supergroup,channel'],
+            'ordem' => ['nullable', 'integer', 'min:0', 'max:9999'],
         ]);
 
         GrupoTelegram::updateOrCreate(
             ['chat_id' => $dados['chat_id'], 'usuario_id' => $request->user()->id],
-            ['nome' => $dados['nome'], 'tipo' => $dados['tipo'], 'ativo' => true]
+            ['nome' => $dados['nome'], 'tipo' => $dados['tipo'], 'ativo' => true, 'ordem' => $dados['ordem'] ?? 0]
         );
 
         return back()->with('sucesso', 'Grupo cadastrado com sucesso!');
@@ -306,11 +308,39 @@ class AdminController extends Controller
     public function atualizarStatus(Request $request, Agendamento $agendamento)
     {
         $dados = $request->validate([
-            'status' => ['required', 'in:pendente,enviado,erro'],
+            'status' => ['required', 'in:pendente,enviado,erro,cancelado'],
         ]);
 
         $agendamento->update(['status' => $dados['status']]);
 
         return back()->with('sucesso', 'Status atualizado com sucesso!');
+    }
+
+    /**
+     * Cancela um agendamento (não entra mais na fila de disparo).
+     */
+    public function cancelar(Agendamento $agendamento)
+    {
+        if ($agendamento->status === Agendamento::STATUS_ENVIADO) {
+            return back()->with('aviso', 'Agendamento já enviado não pode ser cancelado.');
+        }
+
+        $agendamento->marcarComoCancelado();
+
+        return back()->with('sucesso', 'Agendamento cancelado.');
+    }
+
+    /**
+     * Normaliza o telefone com o DDI +55 fixo dos formulários.
+     */
+    protected function telefoneComDdi(string $telefone): string
+    {
+        $digitos = preg_replace('/\D/', '', $telefone) ?? '';
+
+        if (str_starts_with($digitos, '55') && strlen($digitos) > 11) {
+            return '+55 ' . substr($digitos, 2);
+        }
+
+        return '+55 ' . $digitos;
     }
 }

@@ -17,7 +17,7 @@
     <tbody>
     @forelse ($recentes as $a)
         <tr>
-            <td>{{ $a->nome_visitante }} <small class="text-muted">{{ $a->senha_codigo }}</small></td>
+            <td>{{ $a->nome_visitante ?? $a->texto }} <small class="text-muted">{{ $a->senha_codigo ?? ('pos. ' . ($a->posicao ?? '—')) }}</small></td>
             <td>{{ $a->destino_nome }}</td>
             <td>{{ $a->data_hora_envio?->format('d/m H:i') }}</td>
             <td><span class="badge-tg badge-{{ $a->status }}">{{ strtoupper($a->status) }}</span></td>

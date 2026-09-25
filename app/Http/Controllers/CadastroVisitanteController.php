@@ -33,7 +33,7 @@ class CadastroVisitanteController extends Controller
         User::create([
             'name' => $dados['name'],
             'email' => $dados['email'],
-            'telefone' => $dados['telefone'],
+            'telefone' => $this->telefoneComDdi($dados['telefone']),
             'password' => Hash::make(Str::random(16)),
             'role' => 'user',
             'active' => true,
@@ -42,5 +42,19 @@ class CadastroVisitanteController extends Controller
         return redirect()
             ->route('agendafacil.acesso')
             ->with('sucesso', 'Cadastro realizado! Agora digite os 4 últimos dígitos do seu telefone para continuar.');
+    }
+
+    /**
+     * Normaliza o telefone com o DDI +55 fixo do formulário.
+     */
+    protected function telefoneComDdi(string $telefone): string
+    {
+        $digitos = preg_replace('/\D/', '', $telefone) ?? '';
+
+        if (str_starts_with($digitos, '55') && strlen($digitos) > 11) {
+            return '+55 ' . substr($digitos, 2);
+        }
+
+        return '+55 ' . $digitos;
     }
 }

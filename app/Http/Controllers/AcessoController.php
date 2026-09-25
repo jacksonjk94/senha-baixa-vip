@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Agendamento;
+use App\Models\GrupoTelegram;
 use App\Models\User;
 use App\Services\TelegramBotService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -54,7 +55,10 @@ class AcessoController extends Controller
     }
 
     /**
-     * Etapa 2 — Confirmação de dados (nome, grupo, horário, tipo de disparo).
+     * Etapa 2 — Confirmar os dados (conforme print 02.jpeg).
+     * Grupo selecionável e mensagem editável (pré-preenchida no padrão
+     * "Nome + xNÚMERO", ex: "Jackson Dos Santos x40"); horário, tipo
+     * de disparo e telefone são exibidos somente para conferência.
      */
     public function confirmarDados(Request $request)
     {
@@ -64,126 +68,149 @@ class AcessoController extends Controller
             return redirect()->route('agendafacil.acesso');
         }
 
-        return view('agendafacil.confirmar-dados', compact('usuario'));
+        $agendamento = $this->agendamentoAtual($request, $usuario);
+        $grupos = GrupoTelegram::ativos()->ordenados()->get();
+
+        return view('agendafacil.confirmar-dados', [
+            'usuario' => $usuario,
+            'agendamento' => $agendamento,
+            'grupos' => $grupos,
+            'mensagemInicial' => $this->mensagemSugerida($usuario, $agendamento),
+        ]);
     }
 
     /**
-     * Salva os dados confirmados na sessão e segue para conexão Telegram.
+     * Salva grupo + mensagem confirmados e segue para a etapa do código.
+     * Conexão do bot/grupos já feita no admin.
      */
     public function salvarConfirmacao(Request $request)
     {
+        $usuario = $this->visitanteAtual($request);
+
+        if (! $usuario) {
+            return redirect()->route('agendafacil.acesso');
+        }
+
         $dados = $request->validate([
-            'nome_visitante' => ['required', 'string', 'max:120'],
-            'destino_tipo' => ['required', 'in:grupo,pessoa'],
+            'grupo_id' => ['required', 'exists:grupo_telegrams,id'],
+            'mensagem' => ['required', 'string', 'max:500', 'regex:/x\s*\d+\s*$/i'],
+        ], [
+            'grupo_id.required' => 'Selecione o grupo.',
+            'grupo_id.exists' => 'Grupo selecionado inválido.',
+            'mensagem.required' => 'Digite a mensagem (nome + senha).',
+            'mensagem.regex' => 'A mensagem deve terminar com a senha no padrão xNÚMERO (ex: Jackson Dos Santos x40).',
         ]);
 
-        $request->session()->put('agendafacil.confirmacao', $dados);
+        $grupo = GrupoTelegram::ativos()->find($dados['grupo_id']);
 
-        $visitante = $this->visitanteAtual($request);
-
-        // Se o usuário do sistema já está logado e com Telegram, pula para o código.
-        if (Auth::check() && Auth::user()->telegramConectado()) {
-            return redirect()->route('agendafacil.codigo');
+        if (! $grupo) {
+            return back()
+                ->withErrors(['grupo_id' => 'Grupo indisponível no momento.'])
+                ->withInput();
         }
 
-        // Se o visitante já tem Telegram vinculado, segue para validação por código.
-        if ($visitante && filled($visitante->telegram_id)) {
-            return redirect()->route('agendafacil.codigo');
+        $agendamento = $this->agendamentoAtual($request, $usuario);
+
+        if (! $agendamento) {
+            return back()->with('aviso', 'Nenhum agendamento vinculado a este telefone. Fale com a administração.');
         }
 
-        // Conexão do painel admin: com @username cadastrado, a etapa código
-        // vincula e envia sozinha — pula o widget.
-        if ($visitante && filled($visitante->telegram_username)) {
-            return redirect()->route('agendafacil.codigo');
-        }
+        $mensagem = trim($dados['mensagem']);
 
-        return redirect()->route('telegram.connect');
+        $agendamento->update([
+            'grupo_telegram_id' => $grupo->id,
+            'destino_tipo' => Agendamento::DESTINO_GRUPO,
+            'destino_id' => (string) $grupo->chat_id,
+            'destino_nome' => $grupo->nome,
+            'texto' => $mensagem,
+        ]);
+
+        $request->session()->put('agendafacil.agendamento_id', $agendamento->id);
+        // Mantém compat com etapas antigas que liam esta chave.
+        $request->session()->put('agendafacil.confirmacao', [
+            'nome_visitante' => $agendamento->nome_visitante ?? $usuario->name,
+            'destino_tipo' => Agendamento::DESTINO_GRUPO,
+        ]);
+
+        return redirect()->route('agendafacil.codigo');
     }
 
     /**
-     * Etapa 4 — Validação por código de confirmação (6 dígitos enviados via sessão).
+     * Etapa 3 — Código (print 04.jpeg).
+     * O código é enviado diretamente no grupo definido na etapa 2
+     * (conexão do bot/grupos já realizada no admin).
      */
     public function codigo(Request $request, TelegramBotService $telegram)
     {
-        // Vinculação automática: usa a conexão do bot padrão (painel admin)
-        // para descobrir o chat_id pelo @username do visitante, sem widget.
-        $visitanteSessao = $this->visitanteAtual($request);
+        $usuario = $this->visitanteAtual($request);
 
-        if ($visitanteSessao && ! filled($visitanteSessao->telegram_id) && filled($visitanteSessao->telegram_username) && $telegram->configurado()) {
-            $chatId = $telegram->resolverChatIdPorUsername($visitanteSessao->telegram_username);
-
-            if ($chatId) {
-                $visitanteSessao->forceFill(['telegram_id' => $chatId])->save();
-                $request->session()->put('agendafacil.telegram_ok', true);
-                Log::info('Visitante vinculado ao Telegram automaticamente', ['chat_id' => $chatId]);
-            }
+        if (! $usuario) {
+            return redirect()->route('agendafacil.acesso');
         }
+
+        $agendamento = $this->agendamentoAtual($request, $usuario);
+        $grupo = $agendamento?->grupo;
+        $chatId = $grupo?->chat_id
+            ?? ($agendamento?->destino_tipo === 'grupo' ? $agendamento?->destino_id : null);
 
         if (! $request->session()->get('agendafacil.codigo')) {
             $codigo = (string) random_int(100000, 999999);
             $request->session()->put('agendafacil.codigo', $codigo);
 
-            // Envia o código via bot ao Telegram conectado (visitante ou logado).
-            // Sem isso, em produção o usuário nunca receberia o código.
-            $destinatario = $this->visitanteAtual($request) ?? Auth::user();
+            $enviado = false;
 
-            if ($destinatario && filled($destinatario->telegram_id) && $telegram->configurado()) {
+            if (filled($chatId) && $telegram->configurado()) {
                 $envio = $telegram->enviarMensagem(
-                    (string) $destinatario->telegram_id,
+                    (string) $chatId,
                     "Seu código AgendaFácil: {$codigo}"
                 );
 
-                $request->session()->put('agendafacil.codigo_enviado_telegram', $envio['ok']);
+                $enviado = (bool) ($envio['ok'] ?? false);
 
                 if (! $envio['ok']) {
-                    Log::warning('Falha ao enviar código via Telegram', ['resposta' => $envio['resposta']]);
+                    Log::warning('Falha ao enviar código no grupo via Telegram', ['resposta' => $envio['resposta']]);
                 }
             } else {
-                $request->session()->put('agendafacil.codigo_enviado_telegram', false);
-                Log::warning('Código não enviado: sem destinatário vinculado ou bot não configurado.', [
-                    'tem_visitante' => (bool) $destinatario,
-                    'tem_telegram_id' => filled($destinatario?->telegram_id),
+                Log::warning('Código não enviado no grupo: sem grupo do agendamento ou bot não configurado.', [
+                    'tem_agendamento' => (bool) $agendamento,
+                    'chat_id' => $chatId,
                     'bot_configurado' => $telegram->configurado(),
                 ]);
             }
+
+            $request->session()->put('agendafacil.codigo_enviado_telegram', $enviado);
+            $request->session()->put('agendafacil.codigo_grupo_id', $grupo?->id);
         }
 
-        $visitanteAtual = $this->visitanteAtual($request);
-        $conectado = filled($visitanteAtual?->telegram_id) || filled(Auth::user()?->telegram_id);
-        $motivo = $request->session()->get('agendafacil.codigo_enviado_telegram')
-            ? null
-            : (! $telegram->configurado() ? 'sem-bot' : (! $conectado ? 'sem-vinculo' : 'falha-envio'));
-
         return view('agendafacil.codigo', [
-            // Em produção o código é enviado pelo bot; em dev exibimos mascarado no log.
+            // Em produção o código chega no grupo; em dev exibimos no log/tela.
             'codigo_debug' => app()->environment('local')
                 ? $request->session()->get('agendafacil.codigo')
                 : null,
             'codigo_enviado_telegram' => $request->session()->get('agendafacil.codigo_enviado_telegram'),
-            // Conexão do painel admin para orientar o visitante.
-            'botUsername' => $telegram->botUsername(),
-            'botConfigurado' => $telegram->configurado(),
-            'visitanteTelegram' => $visitanteAtual?->telegram_username,
-            'visitanteConectado' => $conectado,
-            'motivoNaoEnviado' => $motivo,
+            'grupo' => $grupo,
+            'agendamento' => $agendamento,
         ]);
     }
 
     /**
-     * Descarta o código atual para gerar e reenviar um novo
-     * (nova vinculação + nova tentativa via bot).
+     * Descarta o código atual para gerar e reenviar um novo no grupo.
      */
     public function reenviarCodigo(Request $request)
     {
-        $request->session()->forget(['agendafacil.codigo', 'agendafacil.codigo_enviado_telegram']);
+        $request->session()->forget(['agendafacil.codigo', 'agendafacil.codigo_enviado_telegram', 'agendafacil.codigo_grupo_id']);
 
         return redirect()
             ->route('agendafacil.codigo')
-            ->with('sucesso', 'Gerando um novo código e reenviando pelo Telegram...');
+            ->with('sucesso', 'Gerando um novo código e reenviando no grupo do Telegram...');
     }
 
     public function validarCodigo(Request $request)
     {
+        if (! $this->visitanteAtual($request)) {
+            return redirect()->route('agendafacil.acesso');
+        }
+
         $dados = $request->validate([
             'codigo' => ['required', 'digits:6'],
         ]);
@@ -200,6 +227,57 @@ class AcessoController extends Controller
         return redirect()->route('grupos.selecionar');
     }
 
+    /**
+     * Etapa 5 — Concluído (print 08.jpeg). Encerra o fluxo;
+     * o restante (disparo) acontece automaticamente no horário.
+     */
+    public function concluido(Request $request)
+    {
+        if (! $this->visitanteAtual($request)) {
+            return redirect()->route('agendafacil.acesso');
+        }
+
+        return view('agendafacil.concluido-unificado');
+    }
+
+    /**
+     * Mensagem inicial do campo editável: mantém o texto já cadastrado
+     * (quando segue o padrão "Nome + xNÚMERO"); senão pré-preenche com
+     * o nome + a próxima senha da sequência do grupo (ex: "Nome x41").
+     */
+    protected function mensagemSugerida(User $usuario, ?Agendamento $agendamento): string
+    {
+        if ($agendamento && filled($agendamento->texto)
+            && preg_match('/x\s*\d+\s*$/i', trim((string) $agendamento->texto))) {
+            return (string) $agendamento->texto;
+        }
+
+        $nome = $agendamento?->nome_visitante ?: $usuario->name;
+
+        return trim((string) $nome) . ' x' . Agendamento::proximaSenhaNumero($agendamento?->grupo_telegram_id);
+    }
+
+    /**
+     * Próxima senha da sequência de um grupo (JSON, para atualizar a
+     * mensagem ao trocar o grupo na etapa 2 sem recarregar a página).
+     */
+    public function proximaSenha(Request $request)
+    {
+        if (! $this->visitanteAtual($request)) {
+            return response()->json(['erro' => 'Sessão expirada.'], 403);
+        }
+
+        $grupoId = $request->query('grupo_id');
+
+        $grupo = $grupoId ? GrupoTelegram::ativos()->find($grupoId) : null;
+
+        if (! $grupo) {
+            return response()->json(['erro' => 'Grupo inválido.'], 422);
+        }
+
+        return response()->json(['proxima' => Agendamento::proximaSenhaNumero($grupo->id)]);
+    }
+
     protected function visitanteAtual(Request $request): ?User
     {
         $id = $request->session()->get('agendafacil.visitante_id');
@@ -209,6 +287,29 @@ class AcessoController extends Controller
         }
 
         return User::find($id);
+    }
+
+    /**
+     * Agendamento do visitante exibido no fluxo único (/acesso):
+     * o mais recente (pendente primeiro). Guarda o id na sessão.
+     */
+    protected function agendamentoAtual(Request $request, User $usuario): ?Agendamento
+    {
+        $idSessao = $request->session()->get('agendafacil.agendamento_id');
+
+        if ($idSessao) {
+            $daSessao = Agendamento::with('grupo')->find($idSessao);
+
+            if ($daSessao && (int) $daSessao->user_id === (int) $usuario->id) {
+                return $daSessao;
+            }
+        }
+
+        return Agendamento::with('grupo')
+            ->where('user_id', $usuario->id)
+            ->orderByRaw("CASE WHEN status = 'pendente' THEN 0 ELSE 1 END")
+            ->latest('data_hora_envio')
+            ->first();
     }
 
     /**

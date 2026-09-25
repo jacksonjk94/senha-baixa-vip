@@ -31,7 +31,7 @@
 <div class="card stat-card mb-3"><div class="card-body">
     <h2 class="h6">Chats conhecidos (chat_id)</h2>
     @if ($chats->isEmpty())
-        <p class="text-muted mb-0">Nenhum chat cadastrado. Liste grupos na tela <a href="{{ route('grupos.selecionar') }}">Selecionar grupo</a> (via Bot API) ou cadastre em <a href="{{ route('admin.grupos') }}">Grupos</a>.</p>
+        <p class="text-muted mb-0">Nenhum chat cadastrado. Cadastre em <a href="{{ route('admin.grupos') }}">Grupos</a> (a conexão do bot/grupos é feita aqui no admin).</p>
     @else
         <div class="af-table-wrap"><table class="table mb-0">
             <thead><tr><th>Nome</th><th>chat_id</th><th>Tipo</th><th>Ativo</th><th class="text-end">Usar em</th></tr></thead>

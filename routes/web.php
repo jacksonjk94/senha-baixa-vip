@@ -23,19 +23,26 @@ use Inertia\Inertia;
 //     ]);
 // });
 
-Route::get('/', function () {
-    // Redireciona para a rota de acesso do AgendaFácil
-    return redirect()->route('agendafacil.acesso');
-});
+Route::get('/', fn () => redirect()->route('agendafacil.acesso'))->name('inicio');
 
-// ── AgendaFácil · Fluxo principal (Blade, identidade Telegram) ──
+// SenhaBaixa v2 · fluxo público separado (OCULTO — fluxo único é o /acesso).
+// Rotas mantidas por compatibilidade, sem links na interface.
+Route::get('/agendar', [AgendamentoController::class, 'agendar'])->name('agendar');
+Route::post('/agendar', [AgendamentoController::class, 'salvar'])->name('agendar.salvar');
+Route::get('/agendamento/{agendamento}/confirmacao', [AgendamentoController::class, 'confirmacao'])->name('agendamento.confirmacao');
+Route::get('/meus-agendamentos', [AgendamentoController::class, 'meus'])->name('agendamento.meus');
+
+// ── AgendaFácil · Fluxo único (Blade, identidade Telegram) ──
+// 1. Acesso → 2. Confirmar os Dados → 3. Código → 4. Grupos do Telegram → 5. Concluído
 Route::get('/acesso', [AcessoController::class, 'acesso'])->name('agendafacil.acesso');
 Route::post('/acesso', [AcessoController::class, 'validarAcesso'])->name('agendafacil.acesso.validar');
 Route::get('/confirmar-dados', [AcessoController::class, 'confirmarDados'])->name('agendafacil.confirmar-dados');
 Route::post('/confirmar-dados', [AcessoController::class, 'salvarConfirmacao'])->name('agendafacil.confirmar-dados.salvar');
+Route::get('/proxima-senha', [AcessoController::class, 'proximaSenha'])->name('agendafacil.proxima-senha');
 Route::get('/codigo', [AcessoController::class, 'codigo'])->name('agendafacil.codigo');
 Route::post('/codigo', [AcessoController::class, 'validarCodigo'])->name('agendafacil.codigo.validar');
 Route::post('/codigo/reenviar', [AcessoController::class, 'reenviarCodigo'])->name('agendafacil.codigo.reenviar');
+Route::get('/concluido', [AcessoController::class, 'concluido'])->name('agendafacil.concluido');
 
 // Cadastro externo do visitante (sem auth) → redireciona ao acesso.
 Route::get('/cadastro', [CadastroVisitanteController::class, 'criar'])->name('visitante.cadastro');
@@ -75,6 +82,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::patch('/grupos/{grupo}/alternar', [AdminController::class, 'alternarGrupo'])->name('admin.grupos.alternar');
     Route::patch('/agendamento/{agendamento}/status', [AdminController::class, 'atualizarStatus'])->name('admin.status');
     Route::post('/agendamento/{agendamento}/reenviar', [DisparoController::class, 'reenviar'])->name('admin.reenviar');
+    Route::patch('/agendamento/{agendamento}/cancelar', [AdminController::class, 'cancelar'])->name('admin.cancelar');
     Route::get('/configuracoes', [ConfiguracaoController::class, 'index'])->name('admin.configuracoes');
     Route::post('/configuracoes', [ConfiguracaoController::class, 'salvar'])->name('admin.configuracoes.salvar');
     Route::get('/telegram', [TelegramTesteController::class, 'index'])->name('admin.telegram');

@@ -31,7 +31,7 @@ body.tg-body {
 
 /* Botão padrão */
 .btn-telegram {
-    background: linear-gradient(90deg, #2AABEE, #229ED8);
+    background: linear-gradient(135deg, #2AABEE 0%, #1B87B8 100%);
     color: #fff;
     border: none;
     border-radius: 12px;
@@ -43,13 +43,28 @@ body.tg-body {
     gap: 8px;
     text-decoration: none;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .btn-telegram:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(42, 171, 238, 0.35);
+    filter: brightness(1.06);
+    box-shadow: 0 6px 16px rgba(42, 171, 238, 0.4);
     color: #fff;
+}
+
+.btn-telegram:active {
+    transform: translateY(0) scale(0.98);
+    filter: brightness(0.96);
+    box-shadow: 0 2px 6px rgba(42, 171, 238, 0.3);
+}
+
+.btn-telegram:focus-visible {
+    outline: 3px solid rgba(42, 171, 238, 0.45);
+    outline-offset: 2px;
 }
 
 .btn-telegram:disabled {
@@ -75,6 +90,17 @@ body.tg-body {
 .btn-telegram-outline:hover {
     background: #EAF6FD;
     color: var(--tg-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(42, 171, 238, 0.2);
+}
+
+.btn-telegram-outline:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.btn-telegram-outline:focus-visible {
+    outline: 3px solid rgba(42, 171, 238, 0.45);
+    outline-offset: 2px;
 }
 
 /* Cartões */

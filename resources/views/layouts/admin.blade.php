@@ -143,6 +143,7 @@
         .badge-pendente { background: var(--af-warn-bg); color: var(--af-warn-tx); }
         .badge-enviado { background: var(--af-success-bg); color: var(--af-success-tx); }
         .badge-erro { background: var(--af-danger-bg); color: var(--af-danger-tx); }
+        .badge-cancelado { background: var(--af-border); color: var(--af-muted); }
         .badge-info-tg { background: var(--af-primary-soft); color: var(--af-primary-strong); }
         [data-theme="dark"] .badge-info-tg { color: var(--af-primary); }
         .alert { border: 1px solid var(--af-border); }
