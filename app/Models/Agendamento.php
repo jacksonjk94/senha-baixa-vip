@@ -155,29 +155,6 @@ class Agendamento extends Model
         return "{$this->posicao}ª de {$total}";
     }
 
-    /**
-     * Próximo número da senha (sufixo "xNÚMERO" do texto, ex: "Nome x40").
-     * Sequência por grupo (cancelados fora); sem grupo, sequência geral.
-     */
-    public static function proximaSenhaNumero(?int $grupoId = null): int
-    {
-        $textos = static::query()
-            ->whereNotNull('texto')
-            ->when($grupoId, fn ($q) => $q->where('grupo_telegram_id', $grupoId))
-            ->naoCancelados()
-            ->pluck('texto');
-
-        $max = 0;
-
-        foreach ($textos as $texto) {
-            if (preg_match('/x\s*(\d+)\s*$/i', trim((string) $texto), $m)) {
-                $max = max($max, (int) $m[1]);
-            }
-        }
-
-        return $max + 1;
-    }
-
     public function marcarComoCancelado(): void
     {
         $this->update(['status' => self::STATUS_CANCELADO]);

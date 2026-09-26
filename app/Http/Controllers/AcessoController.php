@@ -55,9 +55,9 @@ class AcessoController extends Controller
 
     /**
      * Etapa 2 — Confirmar os dados (conforme print 02.jpeg).
-     * Grupo selecionável, mensagem editável (pré-preenchida no padrão
-     * "Nome + xNÚMERO") e horário do disparo definível; tipo de disparo
-     * e telefone são exibidos somente para conferência.
+     * Grupo selecionável, mensagem editável e horário do disparo
+     * definível; tipo de disparo e telefone são exibidos somente
+     * para conferência.
      */
     public function confirmarDados(Request $request)
     {
@@ -70,8 +70,7 @@ class AcessoController extends Controller
         $agendamento = $this->agendamentoAtual($request, $usuario);
         $grupos = GrupoTelegram::ativos()->ordenados()->get();
         $sugestao = $this->sugestaoEnvio();
-        // Rascunhos antigos podem ter sufixo xN: exibe sempre só o nome.
-        $rascunho = $this->rascunhoSemSufixo($request);
+        $rascunho = $this->rascunhoLimpo($request);
 
         return view('agendafacil.confirmar-dados', [
             'usuario' => $usuario,
@@ -85,15 +84,16 @@ class AcessoController extends Controller
     }
 
     /**
-     * Rascunho da sessão com a mensagem sem sufixo xNÚMERO (cura rascunhos
-     * gravados antes da remoção da exibição da senha).
+     * Rascunho da sessão com a mensagem sem o sufixo legado "xN"
+     * (ex.: "Jackson x1" → "Jackson"). Cura rascunhos gravados antes
+     * da remoção do parâmetro.
      */
-    protected function rascunhoSemSufixo(Request $request): ?array
+    protected function rascunhoLimpo(Request $request): ?array
     {
         $rascunho = $request->session()->get('agendafacil.rascunho');
 
         if (is_array($rascunho) && isset($rascunho['mensagem'])) {
-            $rascunho['mensagem'] = $this->mensagemBase((string) $rascunho['mensagem']);
+            $rascunho['mensagem'] = $this->semSufixoSenha((string) $rascunho['mensagem']);
         }
 
         return $rascunho;
@@ -130,10 +130,10 @@ class AcessoController extends Controller
             return redirect()->route('agendafacil.acesso');
         }
 
-        // O visitante digita só o nome: remove sufixo xNÚMERO digitado à mão
-        // (a senha é numerada pelo sistema na confirmação).
+        // O parâmetro xN foi removido: "Jackson x1" digitado ou vindo de
+        // rascunho legado vira "Jackson".
         $request->merge([
-            'mensagem' => $this->mensagemBase((string) $request->input('mensagem', '')),
+            'mensagem' => $this->semSufixoSenha((string) $request->input('mensagem', '')),
         ]);
 
         $dados = $request->validate([
@@ -200,7 +200,7 @@ class AcessoController extends Controller
             return redirect()->route('agendafacil.acesso');
         }
 
-        $rascunho = $this->rascunhoSemSufixo($request);
+        $rascunho = $this->rascunhoLimpo($request);
 
         if (! $rascunho) {
             return redirect()->route('agendafacil.confirmar-dados');
@@ -228,7 +228,7 @@ class AcessoController extends Controller
             return redirect()->route('agendafacil.acesso');
         }
 
-        $rascunho = $this->rascunhoSemSufixo($request);
+        $rascunho = $this->rascunhoLimpo($request);
 
         if (! $rascunho) {
             return redirect()->route('agendafacil.confirmar-dados');
@@ -260,8 +260,8 @@ class AcessoController extends Controller
             $total = Agendamento::totalGrupoHorario($grupo->id, $resolucao['data_hora'], $excetoId) + 1;
         }
 
-        // A senha (xNÚMERO) é numerada pelo sistema: próxima da sequência.
-        $textoFinal = trim((string) $rascunho['mensagem']).' x'.Agendamento::proximaSenhaNumero($grupo->id);
+        // A mensagem vai sem o sufixo legado xN.
+        $textoFinal = $this->semSufixoSenha((string) $rascunho['mensagem']);
 
         if (! $agendamento) {
             $agendamento = Agendamento::create([
@@ -454,49 +454,27 @@ class AcessoController extends Controller
     }
 
     /**
-     * Mensagem inicial do campo editável: mantém o texto já cadastrado
-     * (quando segue o padrão "Nome + xNÚMERO"); senão pré-preenche com
-     * o nome + a próxima senha da sequência do grupo (ex: "Nome x41").
+     * Mensagem inicial do campo editável: texto já cadastrado sem o
+     * sufixo legado "xN" (ex.: "Jackson x1" → "Jackson");
+     * senão pré-preenche com o nome do visitante.
      */
     protected function mensagemSugerida(User $usuario, ?Agendamento $agendamento): string
     {
-        // O visitante vê só o nome: o sufixo xNÚMERO é posto pelo sistema.
         if ($agendamento && filled($agendamento->texto)) {
-            return $this->mensagemBase((string) $agendamento->texto);
+            return $this->semSufixoSenha((string) $agendamento->texto);
         }
 
         $nome = $agendamento?->nome_visitante ?: $usuario->name;
 
-        return trim((string) $nome);
+        return $this->semSufixoSenha((string) $nome);
     }
 
     /**
-     * Base da mensagem sem o sufixo de senha (xNÚMERO digitado à mão).
+     * Remove o sufixo legado de senha ("xNÚMERO" ao final, ex.: " x1").
      */
-    protected function mensagemBase(string $mensagem): string
+    protected function semSufixoSenha(string $mensagem): string
     {
         return trim((string) preg_replace('/\s*x\s*\d+\s*$/i', '', trim($mensagem)));
-    }
-
-    /**
-     * Próxima senha da sequência de um grupo (JSON, para atualizar a
-     * mensagem ao trocar o grupo na etapa 2 sem recarregar a página).
-     */
-    public function proximaSenha(Request $request)
-    {
-        if (! $this->visitanteAtual($request)) {
-            return response()->json(['erro' => 'Sessão expirada.'], 403);
-        }
-
-        $grupoId = $request->query('grupo_id');
-
-        $grupo = $grupoId ? GrupoTelegram::ativos()->find($grupoId) : null;
-
-        if (! $grupo) {
-            return response()->json(['erro' => 'Grupo inválido.'], 422);
-        }
-
-        return response()->json(['proxima' => Agendamento::proximaSenhaNumero($grupo->id)]);
     }
 
     protected function visitanteAtual(Request $request): ?User

@@ -29,7 +29,7 @@
     <h2 class="h6">2 · Fluxo do visitante (5 etapas)</h2>
     <ol class="mb-0">
         <li><strong>Acesso</strong> (<code>/acesso</code>): informa os <strong>4 últimos dígitos do telefone</strong> do agendamento. Sessão local válida por 2h; botão <strong>Sair</strong> no fim do fluxo.</li>
-        <li><strong>Confirmar os dados</strong> (<code>/confirmar-dados</code>): mostra grupo, mensagem (só o nome — o número <code>xN</code> é posto pelo sistema), horário, tipo e telefone. Inclui tela de <strong>resumo</strong> antes da confirmação final.</li>
+        <li><strong>Confirmar os dados</strong> (<code>/confirmar-dados</code>): mostra grupo, mensagem, horário, tipo e telefone. Inclui tela de <strong>resumo</strong> antes da confirmação final.</li>
         <li><strong>Código</strong> (<code>/codigo</code>): confirmação com <strong>login no próprio Telegram</strong> (conta vinculada ao cadastro).</li>
         <li><strong>Grupos do Telegram</strong>: exibe somente o grupo do agendamento; o visitante confirma que é o correto.</li>
         <li><strong>Concluído</strong> (<code>/concluido</code>): exibe a posição (ex: <code>5ª de 12</code>). Depois disso, o envio é automático.</li>

@@ -105,7 +105,7 @@ class AgendaFacilFlowTest extends TestCase
             'user_id' => $usuario->id,
             'grupo_telegram_id' => $grupo->id,
             'nome_visitante' => 'Roberta lallison',
-            'texto' => 'Roberta lallison x8',
+            'texto' => 'Roberta lallison',
             'dados_senha' => 'Aberto SEM OK',
             'destino_tipo' => 'grupo',
             'destino_id' => $grupo->chat_id,
@@ -120,7 +120,6 @@ class AgendaFacilFlowTest extends TestCase
         $resposta->assertOk();
         $resposta->assertSee('Senha normal P1 e Ala');
         $resposta->assertSee('Roberta lallison');
-        $resposta->assertDontSee('Roberta lallison x8');
         $resposta->assertSee('21:00');
         $resposta->assertSee('Aberto SEM OK');
         $resposta->assertSee('13981388690');
@@ -183,7 +182,7 @@ class AgendaFacilFlowTest extends TestCase
         $this->assertDatabaseHas('agendamentos', [
             'id' => $agendamento->id,
             'grupo_telegram_id' => $grupoNovo->id,
-            'texto' => 'Jackson Dos Santos x1',
+            'texto' => 'Jackson Dos Santos',
             'destino_id' => $grupoNovo->chat_id,
             'data_hora_envio' => $quando->format('Y-m-d H:i:s'),
         ]);
@@ -257,14 +256,14 @@ class AgendaFacilFlowTest extends TestCase
         $this->assertDatabaseHas('agendamentos', [
             'user_id' => $usuario->id,
             'grupo_telegram_id' => $grupo->id,
-            'texto' => 'Jackson Dos Santos x1',
+            'texto' => 'Jackson Dos Santos',
             'destino_id' => $grupo->chat_id,
             'data_hora_envio' => $quando->format('Y-m-d H:i:s'),
             'status' => Agendamento::STATUS_PENDENTE,
         ]);
     }
 
-    public function test_salvar_confirmacao_numera_senha_sozinha_sem_sufixo_digitado(): void
+    public function test_salvar_confirmacao_salva_mensagem_como_digitada(): void
     {
         $usuario = User::factory()->create(['ultimos_digitos_telefone' => '4322']);
         $grupo = GrupoTelegram::create([
@@ -301,15 +300,15 @@ class AgendaFacilFlowTest extends TestCase
         ])->post(route('agendafacil.resumo.confirmar'));
 
         $confirmacao->assertRedirect(route('agendafacil.codigo'));
-        // Sequência do grupo estava em x1 → o sistema numerou x2.
+        // A mensagem é salva exatamente como digitada, sem numeração.
         $this->assertDatabaseHas('agendamentos', [
             'user_id' => $usuario->id,
             'grupo_telegram_id' => $grupo->id,
-            'texto' => 'Jackson Dos Santos x2',
+            'texto' => 'Jackson Dos Santos',
         ]);
     }
 
-    public function test_salvar_confirmacao_remove_sufixo_digitado_a_mao(): void
+    public function test_salvar_confirmacao_remove_sufixo_legado_xn(): void
     {
         $usuario = User::factory()->create(['ultimos_digitos_telefone' => '4323']);
         $grupo = GrupoTelegram::create([
@@ -346,7 +345,7 @@ class AgendaFacilFlowTest extends TestCase
         ]);
     }
 
-    public function test_confirmar_dados_preenche_mensagem_sem_exibir_senha(): void
+    public function test_confirmar_dados_preenche_mensagem_com_nome(): void
     {
         $usuario = User::factory()->create([
             'name' => 'Jackson Dos Santos',
@@ -385,35 +384,7 @@ class AgendaFacilFlowTest extends TestCase
 
         $resposta->assertOk();
         $resposta->assertSee('Jackson Dos Santos', false);
-        $resposta->assertDontSee('Jackson Dos Santos x9', false);
         $resposta->assertDontSee('Padrão: nome + senha xNÚMERO');
-    }
-
-    public function test_proxima_senha_retorna_sequencia_do_grupo(): void
-    {
-        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '9977']);
-        $grupo = GrupoTelegram::create([
-            'nome' => 'Grupo Sequencia',
-            'chat_id' => '-100666777',
-            'tipo' => 'supergroup',
-            'ativo' => true,
-        ]);
-        Agendamento::factory()->create([
-            'user_id' => $usuario->id,
-            'grupo_telegram_id' => $grupo->id,
-            'texto' => 'Pessoa x39',
-            'destino_tipo' => 'grupo',
-            'destino_id' => $grupo->chat_id,
-            'destino_nome' => $grupo->nome,
-            'data_hora_envio' => now()->addHour(),
-            'status' => Agendamento::STATUS_PENDENTE,
-        ]);
-
-        $resposta = $this->withSession(['agendafacil.visitante_id' => $usuario->id])
-            ->getJson(route('agendafacil.proxima-senha', ['grupo_id' => $grupo->id]));
-
-        $resposta->assertOk();
-        $resposta->assertJson(['proxima' => 40]);
     }
 
     public function test_confirmar_grupo_sem_grupo_id_retorna_erro_sem_500(): void
@@ -564,7 +535,7 @@ class AgendaFacilFlowTest extends TestCase
         $this->withSession(['agendafacil.visitante_id' => $usuario->id])
             ->post(route('agendafacil.confirmar-dados.salvar'), [
                 'grupo_id' => $grupo->id,
-                'mensagem' => 'Visitante Fechado x1',
+                'mensagem' => 'Visitante Fechado',
                 'data_envio' => now()->toDateString(),
                 'hora_envio' => '10:00',
             ])
@@ -578,7 +549,7 @@ class AgendaFacilFlowTest extends TestCase
         $confirmacao->assertRedirect(route('agendafacil.codigo'));
         $this->assertDatabaseHas('agendamentos', [
             'user_id' => $usuario->id,
-            'texto' => 'Visitante Fechado x1',
+            'texto' => 'Visitante Fechado',
             'data_hora_envio' => now()->format('Y-m-d') . ' 19:58:00',
         ]);
     }

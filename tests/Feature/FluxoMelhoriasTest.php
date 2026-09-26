@@ -95,7 +95,7 @@ class FluxoMelhoriasTest extends TestCase
         $this->assertTrue($esperado->greaterThanOrEqualTo(now()->addMinutes(30)->startOfMinute()));
     }
 
-    public function test_rascunho_antigo_com_sufixo_exibe_so_o_nome(): void
+    public function test_rascunho_remove_sufixo_legado_xn_antes_de_exibir_e_confirmar(): void
     {
         $usuario = User::factory()->create();
         $grupo = GrupoTelegram::create([
@@ -117,20 +117,21 @@ class FluxoMelhoriasTest extends TestCase
             ],
         ]];
 
-        // Etapa 2 exibe sem o sufixo.
+        // Rascunhos antigos não devem reintroduzir o sufixo removido.
         $this->withSession($sessao)
             ->get(route('agendafacil.confirmar-dados'))
             ->assertOk()
-            ->assertDontSee('Jackson x1', false);
+            ->assertSee('value="Jackson"', false)
+            ->assertDontSee('value="Jackson x1"', false);
 
-        // Confirmação não duplica o sufixo.
+        // A confirmação final também persiste o nome sem numeração.
         $this->withSession($sessao)
             ->post(route('agendafacil.resumo.confirmar'))
             ->assertRedirect(route('agendafacil.codigo'));
 
         $this->assertDatabaseHas('agendamentos', [
             'user_id' => $usuario->id,
-            'texto' => 'Jackson x1',
+            'texto' => 'Jackson',
         ]);
     }
 }

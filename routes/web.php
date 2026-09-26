@@ -43,7 +43,6 @@ Route::get('/confirmar-dados', [AcessoController::class, 'confirmarDados'])->nam
 Route::post('/confirmar-dados', [AcessoController::class, 'salvarConfirmacao'])->name('agendafacil.confirmar-dados.salvar');
 Route::get('/confirmar-dados/resumo', [AcessoController::class, 'resumo'])->name('agendafacil.resumo');
 Route::post('/confirmar-dados/confirmar', [AcessoController::class, 'confirmarResumo'])->name('agendafacil.resumo.confirmar');
-Route::get('/proxima-senha', [AcessoController::class, 'proximaSenha'])->name('agendafacil.proxima-senha');
 Route::get('/codigo', [AcessoController::class, 'codigo'])->name('agendafacil.codigo');
 Route::post('/codigo', [AcessoController::class, 'validarCodigo'])->name('agendafacil.codigo.validar');
 Route::post('/codigo/reenviar', [AcessoController::class, 'reenviarCodigo'])->name('agendafacil.codigo.reenviar');

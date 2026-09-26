@@ -42,6 +42,26 @@
                    data-nome="{{ $agendamento?->nome_visitante ?: $usuario->name }}" required>
             @error('mensagem')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
 
+            <p class="text-muted small mb-1 mt-3">Prévia de como chegará no grupo</p>
+            <div class="tg-preview">
+                <div class="tg-bubble">
+                    <div class="tg-sender">{{ $agendamento?->nome_visitante ?: $usuario->name }}</div>
+                    <div class="tg-text"><span id="prevTexto"></span><span class="tg-meta"><span id="prevHora"></span> <span class="tg-checks">✓✓</span></span></div>
+                </div>
+            </div>
+            <style>
+                .tg-preview { display: flex; }
+                .tg-bubble {
+                    background: #fff; border-radius: 4px 16px 16px 16px;
+                    box-shadow: 0 1px 2px rgba(16, 35, 47, .18);
+                    padding: 8px 12px 6px; max-width: 85%; min-width: 180px;
+                }
+                .tg-sender { color: #2AABEE; font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+                .tg-text { font-size: 15px; color: #111; overflow-wrap: anywhere; }
+                .tg-meta { float: right; font-size: 11px; color: #8A9BA8; margin: 8px 0 0 8px; }
+                .tg-checks { color: #2AABEE; }
+            </style>
+
             <label class="form-label fw-semibold mt-3">Horário que será enviado</label>
             <div class="row g-2">
                 <div class="col-6">
@@ -84,7 +104,18 @@
         const mensagem = document.getElementById('mensagem');
         const aviso = document.getElementById('aviso-grupo');
         const hora = document.getElementById('hora_envio');
-        if (!grupo || !mensagem) return;
+        const prevTexto = document.getElementById('prevTexto');
+        const prevHora = document.getElementById('prevHora');
+        if (!grupo) return;
+
+        function atualizarPrevia() {
+            if (!prevTexto || !mensagem) return;
+            prevTexto.textContent = mensagem.value.trim() || (mensagem.dataset.nome || '').trim() || 'Sua mensagem';
+            if (prevHora) {
+                const agora = new Date();
+                prevHora.textContent = String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
+            }
+        }
 
         function atualizarAviso() {
             const opt = grupo.options[grupo.selectedIndex];
@@ -107,11 +138,11 @@
             }
         }
 
-        grupo.addEventListener('change', () => {
-            atualizarAviso();
-        });
+        grupo.addEventListener('change', atualizarAviso);
+        if (mensagem) mensagem.addEventListener('input', atualizarPrevia);
 
         atualizarAviso();
+        atualizarPrevia();
     })();
 </script>
 @endsection
