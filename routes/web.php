@@ -8,6 +8,7 @@ use App\Http\Controllers\CadastroVisitanteController;
 use App\Http\Controllers\ConfiguracaoController;
 use App\Http\Controllers\DisparoController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\ManualController;
 use App\Http\Controllers\TelegramBotsController;
 use App\Http\Controllers\TelegramController;
 use App\Http\Controllers\TelegramTesteController;
@@ -103,6 +104,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::delete('/telegram-bots/{bot}', [TelegramBotsController::class, 'destroy'])->name('admin.telegram-bots.excluir');
     Route::post('/telegram-bots/{bot}/padrao', [TelegramBotsController::class, 'setDefault'])->name('admin.telegram-bots.padrao');
     Route::patch('/telegram-bots/{bot}/alternar', [TelegramBotsController::class, 'toggle'])->name('admin.telegram-bots.alternar');
+    Route::get('/manual', [ManualController::class, 'index'])->name('admin.manual');
 });
 
 Route::middleware([
