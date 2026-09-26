@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agendamento;
-use App\Models\Configuracao;
 use App\Models\GrupoTelegram;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -70,15 +69,34 @@ class AcessoController extends Controller
 
         $agendamento = $this->agendamentoAtual($request, $usuario);
         $grupos = GrupoTelegram::ativos()->ordenados()->get();
+        $sugestao = $this->sugestaoEnvio();
 
         return view('agendafacil.confirmar-dados', [
             'usuario' => $usuario,
             'agendamento' => $agendamento,
             'grupos' => $grupos,
             'mensagemInicial' => $this->mensagemSugerida($usuario, $agendamento),
-            'horarioPadrao' => Configuracao::horarioDisparo(),
+            'sugestaoData' => $sugestao->format('Y-m-d'),
+            'sugestaoHora' => $sugestao->format('H:i'),
             'rascunho' => $request->session()->get('agendafacil.rascunho'),
         ]);
+    }
+
+    /**
+     * Sugestão inicial de envio: agora + 30min, arredondado para cima até
+     * a próxima dezena de minuto (ex.: 16:56 → 17:30). Minutagem inteira
+     * e sempre no futuro (atravessa a virada do dia).
+     */
+    protected function sugestaoEnvio(): \Carbon\Carbon
+    {
+        $base = now()->addMinutes(30)->startOfMinute();
+        $resto = ((int) $base->format('i')) % 10;
+
+        if ($resto !== 0) {
+            $base->addMinutes(10 - $resto);
+        }
+
+        return $base;
     }
 
     /**

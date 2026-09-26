@@ -29,6 +29,7 @@ Projeto em Laravel · Curitiba/PR · 2026
 | 26/09/2026 | 3.2.0 | Validação pessoa | ✅ Etapa 1 com Login Widget oficial do Telegram (Opção A do prompt): `TelegramValidacaoController` (`GET /telegram/validar-callback` com hash oficial + `auth_date` 24h, `POST /sair`), identifica por `telegram_id`/username e vincula ao cadastro, sessão local 2h (`agendafacil.acesso_em`, expira em `visitanteAtual`), 4 dígitos mantidos como fallback, botão Sair no concluído, `TelegramValidacaoTest` (8 testes). Robô/disparo/cron/admin intactos | OpenCode (Muse Spark) |
 | 26/09/2026 | 3.2.1 | Validação pessoa | ✅ Remanejamento: etapa 1 volta aos 4 dígitos; widget vai para a etapa 3 (`GET /telegram/confirmar-callback` exige conta vinculada ao visitante, libera `codigo_ok`, vincula `telegram_id`), código de 6 dígitos no grupo mantido como fallback | OpenCode (Muse Spark) |
 | 26/09/2026 | 3.2.2 | UX formulários | ✅ Spinner + desabilitado em todos os botões de submit (Blade global + Login Inertia); `/cadastro` com e-mail opcional (migration `000021`, `users.email` nullable) e placeholder novo; resumo com tag só da senha; `/codigo` só via Telegram (fallback oculto, sem auto-envio) + status de espera blur/focus | OpenCode (Muse Spark) |
+| 26/09/2026 | 3.2.3 | UX agendamento | ✅ `/confirmar-dados` sugere data/hora = agora + 30min arredondado p/ cima na dezena (ex: 16:56 → 17:30, com virada de dia); substitui o padrão fixo do admin quando sem valor anterior | OpenCode (Muse Spark) |
 
 ---
 

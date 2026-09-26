@@ -47,13 +47,13 @@
                 <div class="col-6">
                     <label class="form-label small text-muted" for="data_envio">Data do envio</label>
                     <input id="data_envio" type="date" name="data_envio" class="input-telegram"
-                           value="{{ old('data_envio', $rascunho['data_envio'] ?? $agendamento?->data_hora_envio?->format('Y-m-d') ?? date('Y-m-d')) }}"
+                           value="{{ old('data_envio', $rascunho['data_envio'] ?? $agendamento?->data_hora_envio?->format('Y-m-d') ?? $sugestaoData) }}"
                            required>
                 </div>
                 <div class="col-6">
                     <label class="form-label small text-muted" for="hora_envio">Horário que será enviado</label>
                     <input id="hora_envio" type="time" name="hora_envio" class="input-telegram"
-                           value="{{ old('hora_envio', $rascunho['hora_envio'] ?? $agendamento?->data_hora_envio?->format('H:i') ?? $horarioPadrao) }}"
+                           value="{{ old('hora_envio', $rascunho['hora_envio'] ?? $agendamento?->data_hora_envio?->format('H:i') ?? $sugestaoHora) }}"
                            required>
                 </div>
             </div>
