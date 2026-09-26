@@ -65,7 +65,10 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // AgendaFácil opera em horário de Brasília: data_hora_envio é gravada e
+    // comparada como wall-clock de São Paulo (coluna dateTime sem tz).
+    // Com UTC os disparos saiam ~3h antes do pretendido.
+    'timezone' => env('APP_TIMEZONE', 'America/Sao_Paulo'),
 
     /*
     |--------------------------------------------------------------------------

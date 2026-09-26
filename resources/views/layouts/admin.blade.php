@@ -29,6 +29,7 @@
             --af-sidebar-text: #33465A;
             --af-topbar-bg: rgba(255, 255, 255, .92);
             --af-shadow: 0 6px 24px rgba(27, 42, 58, .08);
+            --af-scroll-thumb: rgba(27, 42, 58, .28);
             --af-success-bg: #DFF7E9; --af-success-tx: #1E9E5A;
             --af-warn-bg: #FFF3E2; --af-warn-tx: #C97A12;
             --af-danger-bg: #FDE6E6; --af-danger-tx: #C93A3A;
@@ -47,6 +48,7 @@
             --af-sidebar-text: #C9D6E4;
             --af-topbar-bg: rgba(20, 32, 47, .92);
             --af-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+            --af-scroll-thumb: rgba(232, 238, 245, .28);
             --af-success-bg: rgba(30, 158, 90, .18); --af-success-tx: #4ADE80;
             --af-warn-bg: rgba(201, 122, 18, .18); --af-warn-tx: #FBBF24;
             --af-danger-bg: rgba(201, 58, 58, .18); --af-danger-tx: #F87171;
@@ -74,18 +76,33 @@
         }
         .af-brand-name { font-weight: 800; font-size: 17px; color: var(--af-text); line-height: 1.1; }
         .af-brand-sub { font-size: 11px; color: var(--af-muted); letter-spacing: .12em; text-transform: uppercase; }
-        .af-nav { padding: 6px 12px; overflow-y: auto; flex: 1; }
+        .af-nav { padding: 6px 12px; overflow-y: auto; flex: 1; overscroll-behavior: contain; scrollbar-gutter: stable; }
+        /* ── Scrollbar estilo Android: fina, pílula, aparece ao rolar ── */
+        .af-nav { scrollbar-width: thin; scrollbar-color: var(--af-scroll-thumb) transparent; }
+        .af-nav::-webkit-scrollbar { width: 6px; }
+        .af-nav::-webkit-scrollbar-track { background: transparent; }
+        .af-nav::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+        .af-nav:hover::-webkit-scrollbar-thumb, .af-nav:active::-webkit-scrollbar-thumb { background: var(--af-scroll-thumb); }
+        .af-nav::-webkit-scrollbar-thumb:hover { background: var(--af-primary); }
+        .af-table-wrap::-webkit-scrollbar { height: 6px; }
+        .af-table-wrap::-webkit-scrollbar-track { background: transparent; }
+        .af-table-wrap::-webkit-scrollbar-thumb { background: var(--af-scroll-thumb); border-radius: 999px; }
         .af-nav-title { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--af-muted); padding: 14px 10px 6px; }
         .af-nav a {
             display: flex; align-items: center; gap: 10px;
             color: var(--af-sidebar-text); text-decoration: none;
-            padding: 10px 12px; border-radius: 12px; font-weight: 600; font-size: 14.5px;
+            padding: 10px 12px; border-radius: 16px; font-weight: 600; font-size: 14.5px;
             border: 1px solid transparent;
+            transition: background .18s ease, transform .12s ease, box-shadow .18s ease;
         }
         .af-nav a .af-ico { width: 22px; text-align: center; font-size: 17px; }
         .af-nav a:hover { background: var(--af-primary-soft); }
-        .af-nav a.active { background: var(--af-primary-soft); color: var(--af-primary-strong); border-color: var(--af-border); }
-        [data-theme="dark"] .af-nav a.active { color: var(--af-primary); }
+        .af-nav a:active { transform: scale(.98); }
+        .af-nav a.active {
+            background: linear-gradient(135deg, #2AABEE, #1B87B8);
+            color: #fff; border-color: transparent;
+            box-shadow: 0 4px 14px rgba(42, 171, 238, .4);
+        }
         .af-sidebar-foot { padding: 14px 18px; border-top: 1px solid var(--af-border); font-size: 12px; color: var(--af-muted); }
 
         /* ── Menu de perfil (rodapé da sidebar) ── */
@@ -134,12 +151,14 @@
             padding: 10px 20px;
         }
         .af-icon-btn {
-            width: 40px; height: 40px; border-radius: 12px; flex: 0 0 40px;
+            width: 40px; height: 40px; border-radius: 14px; flex: 0 0 40px;
             border: 1px solid var(--af-border); background: var(--af-surface); color: var(--af-text);
             display: inline-flex; align-items: center; justify-content: center;
             font-size: 19px; cursor: pointer;
+            transition: background .18s ease, transform .12s ease;
         }
         .af-icon-btn:hover { background: var(--af-primary-soft); }
+        .af-icon-btn:active { transform: scale(.94); }
         .af-page-title { font-size: 17px; font-weight: 800; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .af-topbar-spacer { flex: 1; }
         .af-user { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--af-muted); }
@@ -147,8 +166,8 @@
         [data-theme="dark"] .af-role { color: var(--af-primary); }
         .af-content { padding: 24px; max-width: 1200px; width: 100%; margin: 0 auto; }
 
-        /* ── Componentes ─────────────────────────── */
-        .stat-card { border: 1px solid var(--af-border); border-radius: 16px; box-shadow: var(--af-shadow); background: var(--af-surface); color: var(--af-text); }
+        /* ── Componentes (toque Material elegante) ── */
+        .stat-card { border: 1px solid var(--af-border); border-radius: 20px; box-shadow: var(--af-shadow); background: var(--af-surface); color: var(--af-text); }
         .card.stat-card { background: var(--af-surface); }
         .table { color: var(--af-text); }
         .table thead th { color: var(--af-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--af-border); }
@@ -162,8 +181,14 @@
             border-color: var(--af-primary); box-shadow: 0 0 0 .2rem var(--af-primary-soft);
         }
         [data-theme="dark"] .form-control::placeholder { color: var(--af-muted); }
-        .btn-primary { background: var(--af-primary); border-color: var(--af-primary); }
-        .btn-primary:hover { background: var(--af-primary-strong); border-color: var(--af-primary-strong); }
+        .btn-primary {
+            background: linear-gradient(135deg, #2AABEE, #1B87B8);
+            border-color: transparent; border-radius: 14px;
+            box-shadow: 0 4px 14px rgba(42, 171, 238, .35);
+            transition: transform .12s ease, box-shadow .18s ease, filter .18s ease;
+        }
+        .btn-primary:hover { background: linear-gradient(135deg, #2AABEE, #1B87B8); border-color: transparent; filter: brightness(1.07); box-shadow: 0 6px 18px rgba(42, 171, 238, .45); }
+        .btn-primary:active { transform: scale(.98); }
         .btn-outline-primary { color: var(--af-primary-strong); border-color: var(--af-primary); }
         .btn-outline-primary:hover { background: var(--af-primary); border-color: var(--af-primary); }
         [data-theme="dark"] .btn-outline-primary { color: var(--af-primary); }
