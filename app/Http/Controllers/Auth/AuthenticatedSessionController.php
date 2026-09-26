@@ -65,6 +65,12 @@ class AuthenticatedSessionController extends Controller
                         'session' => config('session.driver'),
                         'auth' => config('auth.defaults.guard'),
                         'queue' => config('queue.default'),
+                        'hash_default' => config('hashing.default'),
+                        'hash_driver_key_exists' => array_key_exists('driver', (array) config('hashing')),
+                        'hash_driver' => config('hashing.driver'),
+                        'env_HASH_DRIVER' => getenv('HASH_DRIVER'),
+                        'env_LOG_CHANNEL' => getenv('LOG_CHANNEL'),
+                        'config_cached' => app()->configurationIsCached(),
                     ])
                     .' | trace='.implode(' <- ', $frames).']';
             }
