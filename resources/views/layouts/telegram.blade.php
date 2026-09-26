@@ -71,7 +71,36 @@
 </main>
 
 <footer class="text-center text-muted small pb-4">
-    AgendaFácil · {{ date('Y') }}
+    AgendaFǭcil �� {{ date('Y') }}
 </footer>
+<script>
+    // Botões de formulário/etapa: spinner + desabilitado ao enviar (evita duplo clique).
+    (function () {
+        function marcar(form) {
+            form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]').forEach(function (btn) {
+                if (btn.disabled || btn.querySelector('.spinner-border')) return;
+                btn.disabled = true;
+                btn.classList.add('af-processando');
+                var sp = document.createElement('span');
+                sp.className = 'spinner-border spinner-border-sm';
+                sp.setAttribute('aria-hidden', 'true');
+                sp.style.marginRight = '8px';
+                btn.prepend(sp);
+            });
+        }
+        function desmarcar() {
+            document.querySelectorAll('.af-processando').forEach(function (btn) {
+                btn.disabled = false;
+                btn.classList.remove('af-processando');
+                var sp = btn.querySelector('.spinner-border');
+                if (sp) sp.remove();
+            });
+        }
+        document.addEventListener('submit', function (e) {
+            if (e.target instanceof HTMLFormElement) marcar(e.target);
+        }, true);
+        window.addEventListener('pageshow', function (e) { if (e.persisted) desmarcar(); });
+    })();
+</script>
 </body>
 </html>

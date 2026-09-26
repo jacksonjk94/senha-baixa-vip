@@ -19,15 +19,18 @@ class CadastroVisitanteController extends Controller
 
     public function salvar(Request $request)
     {
+        // E-mail opcional: vazio vira null (coluna nullable; unique ignora null).
+        $request->merge(['email' => filled($request->input('email')) ? trim((string) $request->input('email')) : null]);
+
         $dados = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
+            'email' => ['nullable', 'email', 'max:190', 'unique:users,email'],
             'telefone' => ['required', 'string', 'max:30'],
         ], [
             'name.required' => 'Informe seu nome.',
-            'email.required' => 'Informe seu e-mail.',
-            'email.unique' => 'Este e-mail já está cadastrado. Use a tela de acesso.',
-            'telefone.required' => 'Informe seu telefone (usado no acesso por 4 dígitos).',
+            'email.email' => 'Informe um e-mail válido ou deixe em branco.',
+            'email.unique' => 'Este e-mail jǭ estǭ cadastrado. Use a tela de acesso.',
+            'telefone.required' => 'Informe seu telefone (usado no acesso por 4 d��gitos).',
         ]);
 
         User::create([

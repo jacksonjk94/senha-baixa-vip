@@ -22,6 +22,11 @@
             <p class="text-muted small mb-0">Mensagem</p>
             <p class="fw-bold mb-2">{{ $rascunho['mensagem'] }}</p>
 
+            @if (! empty($senha))
+                <p class="text-muted small mb-1">Somente a senha</p>
+                <p class="mb-2"><span class="badge-tg badge-enviado" style="font-size:15px">🔑 {{ $senha }}</span></p>
+            @endif
+
             <p class="text-muted small mb-0">Envio</p>
             <p class="fw-bold mb-2">{{ \Carbon\Carbon::parse($rascunho['data_hora_envio'])->format('d/m/Y \à\s H:i') }}</p>
 

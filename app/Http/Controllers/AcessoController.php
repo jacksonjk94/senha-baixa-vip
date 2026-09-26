@@ -6,9 +6,7 @@ use App\Models\Agendamento;
 use App\Models\Configuracao;
 use App\Models\GrupoTelegram;
 use App\Models\User;
-use App\Services\TelegramBotService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AcessoController extends Controller
@@ -175,7 +173,13 @@ class AcessoController extends Controller
                 ->withErrors(['grupo_id' => 'Grupo indisponível no momento.']);
         }
 
-        return view('agendafacil.confirmar-resumo', compact('usuario', 'grupo', 'rascunho'));
+        // Somente a senha (sufixo xNÚMERO) em destaque no resumo.
+        $senha = null;
+        if (preg_match('/x\s*(\d+)\s*$/i', (string) ($rascunho['mensagem'] ?? ''), $m)) {
+            $senha = 'x'.$m[1];
+        }
+
+        return view('agendafacil.confirmar-resumo', compact('usuario', 'grupo', 'rascunho', 'senha'));
     }
 
     /**
@@ -332,11 +336,11 @@ class AcessoController extends Controller
     }
 
     /**
-     * Etapa 3 — Código (print 04.jpeg).
-     * O código é enviado diretamente no grupo definido na etapa 2
-     * (conexão do bot/grupos já realizada no admin).
+     * Etapa 3 — Confirmação pelo próprio Telegram (Login Widget).
+     * O código de 6 dígitos no grupo segue disponível no backend como
+     * fallback desativado (validar/reenviar), sem envio automático.
      */
-    public function codigo(Request $request, TelegramBotService $telegram)
+    public function codigo(Request $request)
     {
         $usuario = $this->visitanteAtual($request);
 
@@ -346,47 +350,11 @@ class AcessoController extends Controller
 
         $agendamento = $this->agendamentoAtual($request, $usuario);
         $grupo = $agendamento?->grupo;
-        $chatId = $grupo?->chat_id
-            ?? ($agendamento?->destino_tipo === 'grupo' ? $agendamento?->destino_id : null);
-
-        if (! $request->session()->get('agendafacil.codigo')) {
-            $codigo = (string) random_int(100000, 999999);
-            $request->session()->put('agendafacil.codigo', $codigo);
-
-            $enviado = false;
-
-            if (filled($chatId) && $telegram->configurado()) {
-                $envio = $telegram->enviarMensagem(
-                    (string) $chatId,
-                    "Seu código AgendaFácil: {$codigo}"
-                );
-
-                $enviado = (bool) ($envio['ok'] ?? false);
-
-                if (! $envio['ok']) {
-                    Log::warning('Falha ao enviar código no grupo via Telegram', ['resposta' => $envio['resposta']]);
-                }
-            } else {
-                Log::warning('Código não enviado no grupo: sem grupo do agendamento ou bot não configurado.', [
-                    'tem_agendamento' => (bool) $agendamento,
-                    'chat_id' => $chatId,
-                    'bot_configurado' => $telegram->configurado(),
-                ]);
-            }
-
-            $request->session()->put('agendafacil.codigo_enviado_telegram', $enviado);
-            $request->session()->put('agendafacil.codigo_grupo_id', $grupo?->id);
-        }
 
         // Confirmação pelo próprio Telegram (Login Widget, preferencial).
         $bot = TelegramValidacaoController::dadosBotValidacao();
 
         return view('agendafacil.codigo', [
-            // Em produção o código chega no grupo; em dev exibimos no log/tela.
-            'codigo_debug' => app()->environment('local')
-                ? $request->session()->get('agendafacil.codigo')
-                : null,
-            'codigo_enviado_telegram' => $request->session()->get('agendafacil.codigo_enviado_telegram'),
             'grupo' => $grupo,
             'agendamento' => $agendamento,
             'botUsername' => $bot['username'],

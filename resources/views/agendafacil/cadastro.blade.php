@@ -17,14 +17,14 @@
             <input id="name" name="name" class="input-telegram" maxlength="120" value="{{ old('name') }}" required autofocus>
             @error('name')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
 
-            <label class="form-label fw-semibold mt-3" for="email">E-mail</label>
-            <input id="email" name="email" type="email" class="input-telegram" maxlength="190" value="{{ old('email') }}" required>
+            <label class="form-label fw-semibold mt-3" for="email">E-mail <span class="text-muted fw-normal">(opcional)</span></label>
+            <input id="email" name="email" type="email" class="input-telegram" maxlength="190" value="{{ old('email') }}">
             @error('email')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
 
             <label class="form-label fw-semibold mt-3" for="telefone">Telefone / WhatsApp</label>
             <div class="input-group">
                 <span class="input-group-text">+55</span>
-                <input id="telefone" name="telefone" class="form-control input-telegram" maxlength="30" placeholder="(13) 98138-8690" value="{{ old('telefone') }}" required>
+                <input id="telefone" name="telefone" class="form-control input-telegram" maxlength="30" placeholder="(11) 98765-4321" value="{{ old('telefone') }}" required>
             </div>
             @error('telefone')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
 

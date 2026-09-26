@@ -30,42 +30,34 @@
             @if ($usandoEnv)
                 <div class="alert alert-warning small">Bot via configuração do ambiente. Se o botão acima não aparecer, libere o domínio <code>{{ $dominio ?? 'do site' }}</code> no <strong>@BotFather</strong> com o comando <code>/setdomain</code>.</div>
             @endif
-            <p class="text-muted small text-center">Prefere o código do grupo? Use abaixo.</p>
+            <p id="tgConfirmHint" class="text-muted small text-center mb-0">Toque no botão acima e confirme no seu Telegram.</p>
+            <p id="tgConfirmStatus" class="text-center small mt-2 mb-0" hidden>
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                Aguardando confirmação no Telegram… conclua na outra janela.
+            </p>
         @else
-            <div class="alert alert-warning">Confirmação pelo Telegram indisponível no momento (nenhum bot configurado). Use o código do grupo abaixo.</div>
+            <div class="alert alert-warning mb-0">Confirmação pelo Telegram indisponível no momento (nenhum bot configurado). Fale com o responsável.</div>
         @endif
-
-        <details class="mt-2">
-            <summary class="fw-semibold" style="cursor:pointer">Usar o código enviado no grupo</summary>
-            <div class="mt-3">
-                <p class="text-muted">Digite o código recebido no Telegram.
-                    @if ($grupo)
-                        Enviamos no grupo <strong>{{ $grupo->nome }}</strong>.
-                    @endif
-                </p>
-
-                @if (! empty($codigo_debug))
-                    <div class="alert alert-info">Ambiente local — código: <strong>{{ $codigo_debug }}</strong></div>
-                @endif
-                @if (empty($codigo_enviado_telegram))
-                    <div class="alert alert-warning">Não conseguimos entregar o código agora. Toque em reenviar para tentar de novo.</div>
-                @endif
-
-                <form method="POST" action="{{ route('agendafacil.codigo.validar') }}">
-                    @csrf
-                    <label class="form-label fw-semibold" for="codigo">Código</label>
-                    <input id="codigo" name="codigo" class="input-telegram" inputmode="numeric" maxlength="6" placeholder="" required>
-                    @error('codigo')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-                    <button type="submit" class="btn-telegram mt-3">Enviar</button>
-                </form>
-
-                <form method="POST" action="{{ route('agendafacil.codigo.reenviar') }}" class="mt-2">
-                    @csrf
-                    <button type="submit" class="btn-telegram" style="background:linear-gradient(135deg,#4A6076 0%,#33475B 100%)">Reenviar código</button>
-                </form>
-                <p class="text-muted small mt-2">Não recebeu ou deu erro? Reenvie o código.</p>
-            </div>
-        </details>
     </div>
 </div>
+
+@if ($temBot)
+<script>
+    // O widget abre a confirmação em outra janela: mostra spinner enquanto
+    // o visitante confirma lá; se ele voltar sem concluir, esconde de novo.
+    (function () {
+        var status = document.getElementById('tgConfirmStatus');
+        var hint = document.getElementById('tgConfirmHint');
+        if (!status) return;
+        window.addEventListener('blur', function () {
+            status.hidden = false;
+            if (hint) hint.hidden = true;
+        });
+        window.addEventListener('focus', function () {
+            status.hidden = true;
+            if (hint) hint.hidden = false;
+        });
+    })();
+</script>
+@endif
 @endsection

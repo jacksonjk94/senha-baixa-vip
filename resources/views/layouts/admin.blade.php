@@ -392,6 +392,30 @@
             try { localStorage.setItem('af-admin-theme', next); } catch (e) {}
             syncIcon();
         });
+
+        // Botões de formulário: spinner + desabilitado ao enviar (evita duplo clique).
+        document.addEventListener('submit', function (e) {
+            if (!(e.target instanceof HTMLFormElement)) return;
+            e.target.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]').forEach(function (btn) {
+                if (btn.disabled || btn.querySelector('.spinner-border')) return;
+                btn.disabled = true;
+                btn.classList.add('af-processando');
+                var sp = document.createElement('span');
+                sp.className = 'spinner-border spinner-border-sm';
+                sp.setAttribute('aria-hidden', 'true');
+                sp.style.marginRight = '6px';
+                btn.prepend(sp);
+            });
+        }, true);
+        window.addEventListener('pageshow', function (e) {
+            if (!e.persisted) return;
+            document.querySelectorAll('.af-processando').forEach(function (btn) {
+                btn.disabled = false;
+                btn.classList.remove('af-processando');
+                var sp = btn.querySelector('.spinner-border');
+                if (sp) sp.remove();
+            });
+        });
     })();
 </script>
 </body>

@@ -170,6 +170,7 @@ class AgendaFacilFlowTest extends TestCase
             ->assertOk()
             ->assertSee('Confirme seu agendamento')
             ->assertSee('Jackson Dos Santos x40')
+            ->assertSee('Somente a senha')
             ->assertSee('1ª de 1');
 
         $confirmacao = $this->withSession([

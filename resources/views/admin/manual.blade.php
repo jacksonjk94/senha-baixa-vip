@@ -30,7 +30,7 @@
     <ol class="mb-0">
         <li><strong>Acesso</strong> (<code>/acesso</code>): informa os <strong>4 últimos dígitos do telefone</strong> do agendamento. Sessão local válida por 2h; botão <strong>Sair</strong> no fim do fluxo.</li>
         <li><strong>Confirmar os dados</strong> (<code>/confirmar-dados</code>): mostra grupo, mensagem (padrão <code>Nome + xNÚMERO</code>, ex: <code>Maria x8</code>), horário, tipo e telefone. A senha é sugerida como a próxima da sequência do grupo. Inclui tela de <strong>resumo</strong> antes da confirmação final.</li>
-        <li><strong>Código</strong> (<code>/codigo</code>): confirmação com <strong>login no próprio Telegram</strong> (conta vinculada ao cadastro). Alternativa: código de 6 dígitos enviado no grupo.</li>
+        <li><strong>Código</strong> (<code>/codigo</code>): confirmação com <strong>login no próprio Telegram</strong> (conta vinculada ao cadastro).</li>
         <li><strong>Grupos do Telegram</strong>: exibe somente o grupo do agendamento; o visitante confirma que é o correto.</li>
         <li><strong>Concluído</strong> (<code>/concluido</code>): exibe a posição (ex: <code>5ª de 12</code>). Depois disso, o envio é automático.</li>
     </ol>
@@ -40,7 +40,7 @@
     <h2 class="h6">3 · Telas administrativas</h2>
     <ul class="mb-0">
         <li><strong>Visão geral</strong> (<code>/admin</code>): contadores (total, enviados, pendentes, erro) e agendamentos recentes.</li>
-        <li><strong>Cadastros</strong>: visitantes (nome, e-mail, telefone com +55, Telegram, ativo). Busca por nome/e-mail/telefone; criar, editar e excluir (agendamentos vinculados são mantidos).</li>
+        <li><strong>Cadastros</strong>: visitantes (nome, e-mail opcional, telefone com +55, Telegram, ativo). Busca por nome/e-mail/telefone; criar, editar e excluir (agendamentos vinculados são mantidos).</li>
         <li><strong>Usuários</strong>: contas do sistema. Visíveis conforme a hierarquia (abaixo do seu nível sempre; mesmo nível só com <code>can_manage_admins</code>).</li>
         <li><strong>Disparos</strong>: todos os agendamentos com filtros por status, destino e data. Ações por linha: <strong>reenviar</strong> (pendente/erro), <strong>cancelar</strong> (bloqueado se já enviado) e troca direta de status.</li>
         <li><strong>Grupos</strong>: cadastro com nome, <code>chat_id</code>, tipo de chat, regra (aberto/fechado), horários, dias e ordem. Importação automática via <strong>listar do Telegram</strong> (só grupos onde o bot está e houve mensagem recente).</li>
