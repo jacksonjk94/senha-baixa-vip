@@ -47,8 +47,16 @@ class AuthenticatedSessionController extends Controller
                 'arquivo' => $e->getFile().':'.$e->getLine(),
             ]);
 
+            // TEMP-DEBUG: com APP_DEBUG=true (caso da Vercel agora), mostra a
+            // causa real na tela para diagnosticar o 302. REVERTER após o fix,
+            // junto com APP_ENV=production / APP_DEBUG=false no vercel.json.
+            $mensagem = 'Não foi possível entrar agora. Tente novamente em instantes.';
+            if (config('app.debug')) {
+                $mensagem .= ' [DEBUG '.get_class($e).': '.$e->getMessage().']';
+            }
+
             throw ValidationException::withMessages([
-                'email' => 'Não foi possível entrar agora. Tente novamente em instantes.',
+                'email' => $mensagem,
             ]);
         }
 
