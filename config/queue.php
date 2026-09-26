@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', env('VERCEL') ? 'sync' : 'database'),
+    'default' => env('QUEUE_CONNECTION', env('VERCEL') ? 'sync' : 'database') ?: (env('VERCEL') ? 'sync' : 'database'),
 
     /*
     |--------------------------------------------------------------------------

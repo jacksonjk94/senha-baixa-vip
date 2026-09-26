@@ -2,11 +2,11 @@
 
 return [
 
-    'default' => env('HASH_DRIVER', 'bcrypt'),
+    'default' => env('HASH_DRIVER', 'bcrypt') ?: 'bcrypt',
 
     'drivers' => [
         'bcrypt' => [
-            'rounds' => env('BCRYPT_ROUNDS', 10),
+            'rounds' => (int) env('BCRYPT_ROUNDS', 10) ?: 10,
         ],
 
         'argon' => [

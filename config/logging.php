@@ -18,7 +18,10 @@ return [
     |
     */
 
-    'default' => env('LOG_CHANNEL', 'stack'),
+    // ?: protege contra LOG_CHANNEL="" no Dashboard (o Log::info do login
+    // estourava ArgumentCountError no Manager::createDriver). Na Vercel o
+    // fallback é stderr (sem dependência de path); local mantém stack.
+    'default' => env('LOG_CHANNEL', 'stack') ?: (env('VERCEL') ? 'stderr' : 'stack'),
 
     /*
     |--------------------------------------------------------------------------

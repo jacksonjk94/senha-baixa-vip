@@ -16,8 +16,10 @@ return [
     */
 
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'web'),
-        'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
+        // ?: protege contra var definida porém vazia ("") no Dashboard da
+        // Vercel: driver "" quebra o Manager com ArgumentCountError no login.
+        'guard' => env('AUTH_GUARD', 'web') ?: 'web',
+        'passwords' => env('AUTH_PASSWORD_BROKER', 'users') ?: 'users',
     ],
 
     /*

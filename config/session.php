@@ -21,7 +21,7 @@ return [
     // Sessões server-side (database): sessões em cookie são frágeis no
     // serverless (cookies gigantes/instáveis → token CSRF instável → 419).
     // A tabela `sessions` já existe nas migrations.
-    'driver' => env('SESSION_DRIVER', 'database'),
+    'driver' => env('SESSION_DRIVER', 'database') ?: 'database',
 
     /*
     |--------------------------------------------------------------------------
