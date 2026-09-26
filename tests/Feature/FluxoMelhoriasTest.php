@@ -94,4 +94,43 @@ class FluxoMelhoriasTest extends TestCase
         $this->assertSame(0, ((int) $esperado->format('i')) % 10);
         $this->assertTrue($esperado->greaterThanOrEqualTo(now()->addMinutes(30)->startOfMinute()));
     }
+
+    public function test_rascunho_antigo_com_sufixo_exibe_so_o_nome(): void
+    {
+        $usuario = User::factory()->create();
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Legado',
+            'chat_id' => '-100999887',
+            'tipo' => 'supergroup',
+            'ativo' => true,
+        ]);
+
+        $sessao = ['agendafacil' => [
+            'visitante_id' => $usuario->id,
+            'digitos_ok' => true,
+            'acesso_em' => time(),
+            'rascunho' => [
+                'grupo_id' => $grupo->id,
+                'mensagem' => 'Jackson x1',
+                'data_envio' => now()->addDay()->toDateString(),
+                'hora_envio' => '21:00',
+            ],
+        ]];
+
+        // Etapa 2 exibe sem o sufixo.
+        $this->withSession($sessao)
+            ->get(route('agendafacil.confirmar-dados'))
+            ->assertOk()
+            ->assertDontSee('Jackson x1', false);
+
+        // Confirmação não duplica o sufixo.
+        $this->withSession($sessao)
+            ->post(route('agendafacil.resumo.confirmar'))
+            ->assertRedirect(route('agendafacil.codigo'));
+
+        $this->assertDatabaseHas('agendamentos', [
+            'user_id' => $usuario->id,
+            'texto' => 'Jackson x1',
+        ]);
+    }
 }

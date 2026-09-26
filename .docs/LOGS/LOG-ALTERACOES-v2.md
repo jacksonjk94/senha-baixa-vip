@@ -30,6 +30,7 @@ Projeto em Laravel · Curitiba/PR · 2026
 | 26/09/2026 | 3.2.1 | Validação pessoa | ✅ Remanejamento: etapa 1 volta aos 4 dígitos; widget vai para a etapa 3 (`GET /telegram/confirmar-callback` exige conta vinculada ao visitante, libera `codigo_ok`, vincula `telegram_id`), código de 6 dígitos no grupo mantido como fallback | OpenCode (Muse Spark) |
 | 26/09/2026 | 3.2.2 | UX formulários | ✅ Spinner + desabilitado em todos os botões de submit (Blade global + Login Inertia); `/cadastro` com e-mail opcional (migration `000021`, `users.email` nullable) e placeholder novo; resumo com tag só da senha; `/codigo` só via Telegram (fallback oculto, sem auto-envio) + status de espera blur/focus | OpenCode (Muse Spark) |
 | 26/09/2026 | 3.2.3 | UX agendamento | ✅ `/confirmar-dados` sugere data/hora = agora + 30min arredondado p/ cima na dezena (ex: 16:56 → 17:30, com virada de dia); substitui o padrão fixo do admin quando sem valor anterior | OpenCode (Muse Spark) |
+| 26/09/2026 | 3.2.4 | UX mensagem | ✅ Visitante digita só o nome (sem exibir `xN`): sufixo digitado é removido, sistema numera na confirmação (`proximaSenhaNumero`); prévia na tag do resumo; validação sem regex | OpenCode (Muse Spark) |
 
 ---
 

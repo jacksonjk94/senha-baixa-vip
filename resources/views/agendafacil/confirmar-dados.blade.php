@@ -37,7 +37,7 @@
 
             <label class="form-label fw-semibold mt-3" for="mensagem">Mensagem que aparecerá no grupo</label>
             <input id="mensagem" name="mensagem" class="input-telegram" maxlength="200"
-                   placeholder="Ex: Roberta lallison x8"
+                   placeholder="Ex: Maria Silva"
                    value="{{ old('mensagem', $rascunho['mensagem'] ?? $mensagemInicial) }}"
                    data-nome="{{ $agendamento?->nome_visitante ?: $usuario->name }}" required>
             @error('mensagem')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
@@ -107,25 +107,8 @@
             }
         }
 
-        grupo.addEventListener('change', async () => {
+        grupo.addEventListener('change', () => {
             atualizarAviso();
-            const url = @json(route('agendafacil.proxima-senha')) + '?grupo_id=' + encodeURIComponent(grupo.value);
-            try {
-                const resposta = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                if (!resposta.ok) return;
-                const dados = await resposta.json();
-                if (!dados.proxima) return;
-
-                const atual = mensagem.value.trim();
-                const comSenha = atual.match(/^(.*?)x\s*\d+\s*$/i);
-                if (comSenha) {
-                    mensagem.value = comSenha[1].trimEnd() + ' x' + dados.proxima;
-                } else if (atual === '') {
-                    mensagem.value = (mensagem.dataset.nome || '').trim() + ' x' + dados.proxima;
-                }
-            } catch (e) {
-                // Mantém o valor digitado se a consulta falhar.
-            }
         });
 
         atualizarAviso();

@@ -37,15 +37,14 @@
 
 ## 2 · Confirmar os Dados — `GET/POST /confirmar-dados` → `GET/POST /confirmar-dados/resumo`
 
-**O que a pessoa vê:** formulário com **grupo de destino** (select só de grupos ativos, ordenados), **mensagem** editável pré-preenchida no padrão `Nome + xNÚMERO` (ex: `Maria x8`, máx. 200 caracteres), **data + hora** do envio (pré-preenchidas ou padrão do admin) e, somente leitura, tipo de disparo e telefone.
+**O que a pessoa vê:** formulário com **grupo de destino** (select só de grupos ativos, ordenados), **mensagem** editável só com o nome (ex: `Maria`, máx. 200 caracteres — o número `xN` é posto pelo sistema, sem exibir), **data + hora** do envio (sugeridas: agora + 30min arredondado) e, somente leitura, tipo de disparo e telefone.
 
 **O que acontece:**
-1. `GET /proxima-senha` sugere a próxima senha da sequência ao trocar de grupo (máx. `xN` + 1, cancelados fora).
-2. `POST /confirmar-dados` valida tudo (mensagem precisa terminar em `xNÚMERO`; data/hora no futuro) e aplica a **regra do grupo**:
+1. `POST /confirmar-dados` valida tudo (mensagem obrigatória; data/hora no futuro), remove sufixo `xNÚMERO` digitado à mão e aplica a **regra do grupo**:
    - **Aberto:** aceita data/hora livres.
    - **Fechado:** fixa o `horario_disparo`, respeita abertura/fechamento e dias da semana; se a rodada de hoje fechou, joga para a próxima (com aviso).
-3. Salva um **rascunho** na sessão e mostra a tela de **resumo** (Voltar / Confirmar).
-4. `POST /confirmar-dados/confirmar` **recalcula a posição na hora** (a rodada pode ter mudado) e **cria o agendamento** (ou atualiza o existente) como `pendente`, com: grupo, texto exato, **posição/total** (aberto = por minuto; fechado = por rodada), destino (`chat_id` + nome), `data_hora_envio` e IP de origem. Segue para `/codigo`.
+3. Salva um **rascunho** na sessão e mostra a tela de **resumo** (com tag só da senha + Voltar / Confirmar).
+4. `POST /confirmar-dados/confirmar` **recalcula a posição na hora** (a rodada pode ter mudado), **numera a senha** (`xN` = próxima da sequência do grupo, máx. + 1, cancelados fora) e **cria o agendamento** (ou atualiza o existente) como `pendente`, com: grupo, texto final (`Nome xN`), **posição/total** (aberto = por minuto; fechado = por rodada), destino (`chat_id` + nome), `data_hora_envio` e IP de origem. Segue para `/codigo`.
 
 ## 3 · Código — `GET/POST /codigo` (+ `POST /codigo/reenviar`)
 

@@ -119,7 +119,8 @@ class AgendaFacilFlowTest extends TestCase
 
         $resposta->assertOk();
         $resposta->assertSee('Senha normal P1 e Ala');
-        $resposta->assertSee('Roberta lallison x8');
+        $resposta->assertSee('Roberta lallison');
+        $resposta->assertDontSee('Roberta lallison x8');
         $resposta->assertSee('21:00');
         $resposta->assertSee('Aberto SEM OK');
         $resposta->assertSee('13981388690');
@@ -156,7 +157,7 @@ class AgendaFacilFlowTest extends TestCase
         $resposta = $this->withSession(['agendafacil.visitante_id' => $usuario->id])
             ->post(route('agendafacil.confirmar-dados.salvar'), [
                 'grupo_id' => $grupoNovo->id,
-                'mensagem' => 'Jackson Dos Santos x40',
+                'mensagem' => 'Jackson Dos Santos',
                 'data_envio' => $quando->toDateString(),
                 'hora_envio' => $quando->format('H:i'),
             ]);
@@ -169,8 +170,7 @@ class AgendaFacilFlowTest extends TestCase
         ])->get(route('agendafacil.resumo'))
             ->assertOk()
             ->assertSee('Confirme seu agendamento')
-            ->assertSee('Jackson Dos Santos x40')
-            ->assertSee('Somente a senha')
+            ->assertSee('Jackson Dos Santos')
             ->assertSee('1ª de 1');
 
         $confirmacao = $this->withSession([
@@ -183,7 +183,7 @@ class AgendaFacilFlowTest extends TestCase
         $this->assertDatabaseHas('agendamentos', [
             'id' => $agendamento->id,
             'grupo_telegram_id' => $grupoNovo->id,
-            'texto' => 'Jackson Dos Santos x40',
+            'texto' => 'Jackson Dos Santos x1',
             'destino_id' => $grupoNovo->chat_id,
             'data_hora_envio' => $quando->format('Y-m-d H:i:s'),
         ]);
@@ -241,7 +241,7 @@ class AgendaFacilFlowTest extends TestCase
         $resposta = $this->withSession(['agendafacil.visitante_id' => $usuario->id])
             ->post(route('agendafacil.confirmar-dados.salvar'), [
                 'grupo_id' => $grupo->id,
-                'mensagem' => 'Jackson Dos Santos x40',
+                'mensagem' => 'Jackson Dos Santos',
                 'data_envio' => $quando->toDateString(),
                 'hora_envio' => $quando->format('H:i'),
             ]);
@@ -257,14 +257,14 @@ class AgendaFacilFlowTest extends TestCase
         $this->assertDatabaseHas('agendamentos', [
             'user_id' => $usuario->id,
             'grupo_telegram_id' => $grupo->id,
-            'texto' => 'Jackson Dos Santos x40',
+            'texto' => 'Jackson Dos Santos x1',
             'destino_id' => $grupo->chat_id,
             'data_hora_envio' => $quando->format('Y-m-d H:i:s'),
             'status' => Agendamento::STATUS_PENDENTE,
         ]);
     }
 
-    public function test_salvar_confirmacao_rejeita_mensagem_fora_do_padrao_xnumero(): void
+    public function test_salvar_confirmacao_numera_senha_sozinha_sem_sufixo_digitado(): void
     {
         $usuario = User::factory()->create(['ultimos_digitos_telefone' => '4322']);
         $grupo = GrupoTelegram::create([
@@ -292,7 +292,43 @@ class AgendaFacilFlowTest extends TestCase
                 'hora_envio' => '21:00',
             ]);
 
-        $resposta->assertSessionHasErrors('mensagem');
+        $resposta->assertRedirect(route('agendafacil.resumo'));
+        $this->assertSame('Jackson Dos Santos', session('agendafacil.rascunho.mensagem'));
+
+        $confirmacao = $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.rascunho' => session('agendafacil.rascunho'),
+        ])->post(route('agendafacil.resumo.confirmar'));
+
+        $confirmacao->assertRedirect(route('agendafacil.codigo'));
+        // Sequência do grupo estava em x1 → o sistema numerou x2.
+        $this->assertDatabaseHas('agendamentos', [
+            'user_id' => $usuario->id,
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => 'Jackson Dos Santos x2',
+        ]);
+    }
+
+    public function test_salvar_confirmacao_remove_sufixo_digitado_a_mao(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '4323']);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Sufixo',
+            'chat_id' => '-100000004',
+            'tipo' => 'supergroup',
+            'ativo' => true,
+        ]);
+
+        $resposta = $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.confirmar-dados.salvar'), [
+                'grupo_id' => $grupo->id,
+                'mensagem' => 'Jackson Dos Santos x99',
+                'data_envio' => now()->addDay()->toDateString(),
+                'hora_envio' => '21:00',
+            ]);
+
+        $resposta->assertRedirect(route('agendafacil.resumo'));
+        $this->assertSame('Jackson Dos Santos', session('agendafacil.rascunho.mensagem'));
     }
 
     public function test_cadastro_salva_telefone_com_ddi_55_fixo(): void
@@ -310,7 +346,7 @@ class AgendaFacilFlowTest extends TestCase
         ]);
     }
 
-    public function test_confirmar_dados_preenche_mensagem_com_proxima_senha_da_sequencia(): void
+    public function test_confirmar_dados_preenche_mensagem_sem_exibir_senha(): void
     {
         $usuario = User::factory()->create([
             'name' => 'Jackson Dos Santos',
@@ -348,7 +384,8 @@ class AgendaFacilFlowTest extends TestCase
             ->get(route('agendafacil.confirmar-dados'));
 
         $resposta->assertOk();
-        $resposta->assertSee('Jackson Dos Santos x9', false);
+        $resposta->assertSee('Jackson Dos Santos', false);
+        $resposta->assertDontSee('Jackson Dos Santos x9', false);
         $resposta->assertDontSee('Padrão: nome + senha xNÚMERO');
     }
 
@@ -506,7 +543,7 @@ class AgendaFacilFlowTest extends TestCase
         $this->withSession(['agendafacil.visitante_id' => $usuario->id])
             ->post(route('agendafacil.confirmar-dados.salvar'), [
                 'grupo_id' => $grupo->id,
-                'mensagem' => str_repeat('a', 197) . ' x40',
+                'mensagem' => str_repeat('a', 201),
                 'data_envio' => now()->addDay()->toDateString(),
                 'hora_envio' => '21:00',
             ])
