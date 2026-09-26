@@ -19,11 +19,11 @@
     <tbody>
     @forelse ($bots as $b)
         <tr>
-            <td>{{ $b->name }}</td>
-            <td><code>{{ '@' . $b->username }}</code></td>
-            <td>{{ $b->is_default ? '⭐' : '—' }}</td>
-            <td>{{ $b->is_active ? '✅' : '⏸' }}</td>
-            <td class="text-end text-nowrap">
+            <td data-label="Nome">{{ $b->name }}</td>
+            <td data-label="Username"><code>{{ '@' . $b->username }}</code></td>
+            <td data-label="Padrão">{{ $b->is_default ? '⭐' : '—' }}</td>
+            <td data-label="Ativo">{{ $b->is_active ? '✅' : '⏸' }}</td>
+            <td class="text-end text-nowrap af-cell-actions">
                 @if (! $b->is_default && $b->is_active)
                     <form method="POST" action="{{ route('admin.telegram-bots.padrao', $b) }}" class="d-inline">@csrf<button class="btn btn-sm btn-outline-primary">Padrão</button></form>
                 @endif

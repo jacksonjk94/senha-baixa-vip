@@ -22,12 +22,12 @@
     <tbody>
     @forelse ($usuarios as $u)
         <tr>
-            <td>{{ $u->name }}</td>
-            <td>{{ $u->email }}</td>
-            <td><span class="badge-tg badge-info-tg">{{ $u->role }}</span></td>
-            <td>{{ $u->can_manage_admins ? '✅' : '—' }}</td>
-            <td>{{ $u->active ? '✅' : '⏸' }}</td>
-            <td class="text-end text-nowrap">
+            <td data-label="Nome">{{ $u->name }}</td>
+            <td data-label="E-mail">{{ $u->email }}</td>
+            <td data-label="Papel"><span class="badge-tg badge-info-tg">{{ $u->role }}</span></td>
+            <td data-label="Admins?">{{ $u->can_manage_admins ? '✅' : '—' }}</td>
+            <td data-label="Ativo">{{ $u->active ? '✅' : '⏸' }}</td>
+            <td class="text-end text-nowrap af-cell-actions">
                 @if (\App\Support\PapelHierarquia::podeGerenciar(auth()->user(), $u))
                     <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditarUsuario{{ $u->id }}">Editar</button>
                     <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluirUsuario{{ $u->id }}">Excluir</button>

@@ -221,8 +221,7 @@
         }
 
         /* ── Mobile: sidebar off-canvas ──────────── */
-        @media (max-width: 991.98px) {
-            .af-sidebar {
+        @media (max-width: 991.98px) {            .af-sidebar {
                 position: fixed; left: 0; top: 0; bottom: 0;
                 transform: translateX(-105%);
                 transition: transform .25s ease;
@@ -233,6 +232,42 @@
             body.af-collapsed .af-sidebar { margin-left: 0; }
             .af-content { padding: 16px; }
             .af-user-name { display: none; }
+        }
+
+        /* ── Tabelas viram cards elegantes no mobile ──
+           Desktop (>=768px): tabela normal. Mobile: cada linha vira um
+           card com rótulos vindos de `data-label` nas <td>. */
+        @media (max-width: 767.98px) {
+            .af-table-wrap { overflow: visible; }
+            .af-table-wrap table.table { display: block; margin-bottom: 0; }
+            .af-table-wrap thead { display: none; }
+            .af-table-wrap tbody { display: grid; gap: 12px; }
+            .af-table-wrap tbody tr {
+                display: grid;
+                background: var(--af-surface-2);
+                border: 1px solid var(--af-border);
+                border-radius: 16px;
+                padding: 4px 14px;
+                box-shadow: var(--af-shadow);
+            }
+            .af-table-wrap tbody td {
+                display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+                border: 0; padding: 8px 0; text-align: right; min-width: 0;
+            }
+            .af-table-wrap tbody td + td { border-top: 1px dashed var(--af-border); }
+            .af-table-wrap tbody td[data-label]::before {
+                content: attr(data-label);
+                font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+                color: var(--af-muted); text-align: left; flex: 0 0 auto;
+            }
+            .af-table-wrap tbody td[colspan] { display: block; text-align: center; }
+            .af-table-wrap tbody td.af-cell-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: stretch; }
+            .af-table-wrap tbody td.af-cell-actions > *,
+            .af-table-wrap tbody td.af-cell-actions form > .btn,
+            .af-table-wrap tbody td.af-cell-actions > .btn { flex: 1 1 40%; }
+            .af-table-wrap tbody td.af-cell-actions .btn { width: 100%; }
+            .af-table-wrap tbody td.af-cell-actions form { display: contents; }
+            .af-table-wrap tbody td.af-cell-actions .form-select { flex: 1 1 100%; }
         }
     </style>
 </head>

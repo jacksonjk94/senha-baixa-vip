@@ -30,13 +30,13 @@
     <tbody>
     @forelse ($grupos as $g)
         <tr>
-            <td>{{ $g->nome }}</td>
-            <td><code>{{ $g->chat_id }}</code></td>
-            <td>{{ $g->tipo }}</td>
-            <td><span class="badge-tg {{ $g->modo === 'fechado' ? 'badge-pendente' : 'badge-enviado' }}">{{ $g->etiquetaModo() }}</span></td>
-            <td><small>{{ $g->horario_abertura?->format('H:i') ?? '—' }} / {{ $g->horario_fechamento?->format('H:i') ?? '—' }} / {{ $g->horario_disparo?->format('H:i') ?? '—' }}</small></td>
-            <td>{{ $g->ativo ? '✅' : '⏸' }}</td>
-            <td class="text-nowrap">
+            <td data-label="Nome">{{ $g->nome }}</td>
+            <td data-label="Chat ID"><code>{{ $g->chat_id }}</code></td>
+            <td data-label="Tipo">{{ $g->tipo }}</td>
+            <td data-label="Regra"><span class="badge-tg {{ $g->modo === 'fechado' ? 'badge-pendente' : 'badge-enviado' }}">{{ $g->etiquetaModo() }}</span></td>
+            <td data-label="Horários"><small>{{ $g->horario_abertura?->format('H:i') ?? '—' }} / {{ $g->horario_fechamento?->format('H:i') ?? '—' }} / {{ $g->horario_disparo?->format('H:i') ?? '—' }}</small></td>
+            <td data-label="Ativo">{{ $g->ativo ? '✅' : '⏸' }}</td>
+            <td class="text-nowrap af-cell-actions">
                 <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditarGrupo{{ $g->id }}">Editar</button>
                 <form method="POST" action="{{ route('admin.grupos.alternar', $g) }}" class="d-inline">@csrf @method('PATCH')
                     <button class="btn btn-sm btn-outline-secondary">{{ $g->ativo ? 'Desativar' : 'Ativar' }}</button>
@@ -94,10 +94,10 @@
                     <tbody>
                     @foreach ($gruposApi as $g)
                         <tr>
-                            <td>{{ $g['nome'] }}</td>
-                            <td><code>{{ $g['chat_id'] }}</code></td>
-                            <td>{{ $g['tipo'] }}</td>
-                            <td class="text-end">
+                            <td data-label="Nome">{{ $g['nome'] }}</td>
+                            <td data-label="Chat ID"><code>{{ $g['chat_id'] }}</code></td>
+                            <td data-label="Tipo">{{ $g['tipo'] }}</td>
+                            <td class="text-end af-cell-actions">
                                 @if (in_array($g['chat_id'], $chatIdsCadastrados, true))
                                     <small class="text-muted">✅ já cadastrado</small>
                                 @else

@@ -38,11 +38,11 @@
             <tbody>
             @foreach ($chats as $chat)
                 <tr>
-                    <td>{{ $chat->nome }}</td>
-                    <td><code>{{ $chat->chat_id }}</code></td>
-                    <td>{{ $chat->tipo }}</td>
-                    <td>{{ $chat->ativo ? '✅' : '⏸' }}</td>
-                    <td class="text-end text-nowrap">
+                    <td data-label="Nome">{{ $chat->nome }}</td>
+                    <td data-label="Chat ID"><code>{{ $chat->chat_id }}</code></td>
+                    <td data-label="Tipo">{{ $chat->tipo }}</td>
+                    <td data-label="Ativo">{{ $chat->ativo ? '✅' : '⏸' }}</td>
+                    <td class="text-end text-nowrap af-cell-actions">
                         <button type="button" class="btn btn-sm btn-outline-primary" data-preencher="testeChatId" data-chat="{{ $chat->chat_id }}">Teste</button>
                         <button type="button" class="btn btn-sm btn-outline-primary" data-preencher="codigoChatId" data-chat="{{ $chat->chat_id }}">Código</button>
                     </td>
@@ -65,11 +65,11 @@
             <tbody>
             @foreach ($gruposApi as $g)
                 <tr>
-                    <td>{{ $g['nome'] }}</td>
-                    <td><code>{{ $g['chat_id'] }}</code></td>
-                    <td>{{ $g['tipo'] }}</td>
-                    <td>{{ in_array($g['chat_id'], $chatIdsCadastrados, true) ? '✅ cadastrado' : '⏳ não cadastrado' }}</td>
-                    <td class="text-end text-nowrap">
+                    <td data-label="Nome">{{ $g['nome'] }}</td>
+                    <td data-label="Chat ID"><code>{{ $g['chat_id'] }}</code></td>
+                    <td data-label="Tipo">{{ $g['tipo'] }}</td>
+                    <td data-label="Situação">{{ in_array($g['chat_id'], $chatIdsCadastrados, true) ? '✅ cadastrado' : '⏳ não cadastrado' }}</td>
+                    <td class="text-end text-nowrap af-cell-actions">
                         <button type="button" class="btn btn-sm btn-outline-primary" data-preencher="testeChatId" data-chat="{{ $g['chat_id'] }}">Teste</button>
                         <button type="button" class="btn btn-sm btn-outline-primary" data-preencher="codigoChatId" data-chat="{{ $g['chat_id'] }}">Código</button>
                     </td>
