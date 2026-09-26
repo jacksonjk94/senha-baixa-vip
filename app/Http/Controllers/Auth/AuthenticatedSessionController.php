@@ -52,7 +52,21 @@ class AuthenticatedSessionController extends Controller
             // junto com APP_ENV=production / APP_DEBUG=false no vercel.json.
             $mensagem = 'Não foi possível entrar agora. Tente novamente em instantes.';
             if (config('app.debug')) {
-                $mensagem .= ' [DEBUG '.get_class($e).': '.$e->getMessage().']';
+                // Primeiros frames do trace revelam QUAL Manager recebeu "".
+                $frames = [];
+                foreach (array_slice($e->getTrace(), 0, 6) as $f) {
+                    $frames[] = ($f['class'] ?? '').($f['type'] ?? '').($f['function'] ?? '?')
+                        .' @ '.basename($f['file'] ?? '?').':'.($f['line'] ?? '?');
+                }
+                $mensagem .= ' [DEBUG '.get_class($e).': '.$e->getMessage()
+                    .' | cfg='.json_encode([
+                        'log' => config('logging.default'),
+                        'cache' => config('cache.default'),
+                        'session' => config('session.driver'),
+                        'auth' => config('auth.defaults.guard'),
+                        'queue' => config('queue.default'),
+                    ])
+                    .' | trace='.implode(' <- ', $frames).']';
             }
 
             throw ValidationException::withMessages([
