@@ -1,0 +1,105 @@
+{
+  "name": "⏰ Disparos SenhaBaixa",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://agendafacil-teste.vercel.app/api/api/n8n/disparos/processar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "709c76ae4892c229e884721ae0a299dd2e0a829c0621c7449124fb956af9517c"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        224,
+        192
+      ],
+      "id": "a77b5a5f-f540-4224-b04a-8228d5412729",
+      "name": "VERCEL::DISPAROS"
+    },
+    {
+      "parameters": {
+        "url": "https://gather-shopper-hardwood-costs.trycloudflare.com/api/n8n/disparos/processar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "709c76ae4892c229e884721ae0a299dd2e0a829c0621c7449124fb956af9517c"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        224,
+        0
+      ],
+      "id": "2facf947-8031-4e2e-a12f-03489b587221",
+      "name": "LOCAL::DISPAROS"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        96
+      ],
+      "id": "debf45b4-37f8-4e42-9fc8-0fcb29ba8375",
+      "name": "Schedule::WORKER::DISPAROS"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule::WORKER::DISPAROS": {
+      "main": [
+        [
+          {
+            "node": "LOCAL::DISPAROS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "VERCEL::DISPAROS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "5c14bc53-1514-487f-9109-1be0ca4bf580",
+  "meta": {
+    "instanceId": "c80f8a0995d3d46835f1cf0f4217509f9b861ef4d504e62e508e679a16fce892"
+  },
+  "nodeGroups": [],
+  "id": "Gma1QdPfdQgqSyiB",
+  "tags": []
+}
