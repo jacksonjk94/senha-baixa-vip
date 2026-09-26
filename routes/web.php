@@ -12,6 +12,7 @@ use App\Http\Controllers\ManualController;
 use App\Http\Controllers\TelegramBotsController;
 use App\Http\Controllers\TelegramController;
 use App\Http\Controllers\TelegramTesteController;
+use App\Http\Controllers\TelegramValidacaoController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -58,6 +59,12 @@ Route::post('/cadastro', [CadastroVisitanteController::class, 'salvar'])->name('
 // Autenticação Telegram (Socialite)
 Route::get('/telegram/connect', [TelegramController::class, 'connect'])->name('telegram.connect');
 Route::get('/telegram/callback', [TelegramController::class, 'callback'])->name('telegram.callback');
+
+// Validação da pessoa pelo próprio Telegram (Login Widget — etapa 3, /codigo).
+// Perna independente do robô: só confirma identidade, cria sessão local de 2h.
+// Confirmação da etapa 3 (/codigo): login no Telegram vinculado ao cadastro.
+Route::get('/telegram/confirmar-callback', [TelegramValidacaoController::class, 'confirmar'])->name('telegram.confirmar-callback');
+Route::post('/sair', [TelegramValidacaoController::class, 'sair'])->name('agendafacil.sair');
 Route::post('/telegram/disconnect', [TelegramController::class, 'disconnect'])->middleware('auth')->name('telegram.disconnect');
 
 // Seleção de grupo + agendamento

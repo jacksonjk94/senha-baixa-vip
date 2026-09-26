@@ -28,9 +28,9 @@
 <div class="card stat-card mb-3" id="m-fluxo"><div class="card-body">
     <h2 class="h6">2 · Fluxo do visitante (5 etapas)</h2>
     <ol class="mb-0">
-        <li><strong>Acesso</strong> (<code>/acesso</code>): informa os <strong>4 últimos dígitos do telefone</strong> do agendamento e continua.</li>
+        <li><strong>Acesso</strong> (<code>/acesso</code>): informa os <strong>4 últimos dígitos do telefone</strong> do agendamento. Sessão local válida por 2h; botão <strong>Sair</strong> no fim do fluxo.</li>
         <li><strong>Confirmar os dados</strong> (<code>/confirmar-dados</code>): mostra grupo, mensagem (padrão <code>Nome + xNÚMERO</code>, ex: <code>Maria x8</code>), horário, tipo e telefone. A senha é sugerida como a próxima da sequência do grupo. Inclui tela de <strong>resumo</strong> antes da confirmação final.</li>
-        <li><strong>Código</strong> (<code>/codigo</code>): código de 6 dígitos enviado <strong>direto no grupo</strong> pelo bot; permite reenviar.</li>
+        <li><strong>Código</strong> (<code>/codigo</code>): confirmação com <strong>login no próprio Telegram</strong> (conta vinculada ao cadastro). Alternativa: código de 6 dígitos enviado no grupo.</li>
         <li><strong>Grupos do Telegram</strong>: exibe somente o grupo do agendamento; o visitante confirma que é o correto.</li>
         <li><strong>Concluído</strong> (<code>/concluido</code>): exibe a posição (ex: <code>5ª de 12</code>). Depois disso, o envio é automático.</li>
     </ol>
@@ -90,6 +90,7 @@
     <div class="af-table-wrap"><table class="table mb-0">
         <thead><tr><th>Sintoma</th><th>Causa provável</th><th>O que fazer</th></tr></thead>
         <tbody>
+            <tr><td data-label="Sintoma">Botão do Telegram não aparece no acesso</td><td data-label="Causa provável">Domínio não liberado ou sem bot</td><td data-label="O que fazer">No <strong>@BotFather</strong>, comando <code>/setdomain</code> com o domínio do site; confira o bot padrão em <strong>Bots Telegram</strong></td></tr>
             <tr><td data-label="Sintoma">Mensagem não chega no grupo</td><td data-label="Causa provável">Bot fora do grupo ou sem permissão; grupo inativo</td><td data-label="O que fazer">Confira em Teste Telegram (getMe + envio de teste); promova o bot a administrador</td></tr>
             <tr><td data-label="Sintoma">Grupo não aparece em “listar do Telegram”</td><td data-label="Causa provável">Sem atividade recente com o bot</td><td data-label="O que fazer">Envie uma mensagem no grupo e recarregue a página</td></tr>
             <tr><td data-label="Sintoma">Disparo saiu no horário errado</td><td data-label="Causa provável">Cron do n8n com timezone diferente</td><td data-label="O que fazer">Ajuste o cron para <code>America/Sao_Paulo</code>; confira modo/horários do grupo</td></tr>

@@ -51,6 +51,7 @@ class AcessoController extends Controller
         // Guarda o visitante identificado na sessão do fluxo (sem logar no sistema).
         $request->session()->put('agendafacil.visitante_id', $usuario->id);
         $request->session()->put('agendafacil.digitos_ok', true);
+        $request->session()->put('agendafacil.acesso_em', time());
 
         return redirect()->route('agendafacil.confirmar-dados');
     }
@@ -377,6 +378,9 @@ class AcessoController extends Controller
             $request->session()->put('agendafacil.codigo_grupo_id', $grupo?->id);
         }
 
+        // Confirmação pelo próprio Telegram (Login Widget, preferencial).
+        $bot = TelegramValidacaoController::dadosBotValidacao();
+
         return view('agendafacil.codigo', [
             // Em produção o código chega no grupo; em dev exibimos no log/tela.
             'codigo_debug' => app()->environment('local')
@@ -385,6 +389,11 @@ class AcessoController extends Controller
             'codigo_enviado_telegram' => $request->session()->get('agendafacil.codigo_enviado_telegram'),
             'grupo' => $grupo,
             'agendamento' => $agendamento,
+            'botUsername' => $bot['username'],
+            'temBot' => $bot['temBot'],
+            'usandoEnv' => $bot['usandoEnv'],
+            'dominio' => $bot['dominio'],
+            'confirmarUrl' => route('telegram.confirmar-callback'),
         ]);
     }
 
@@ -482,6 +491,14 @@ class AcessoController extends Controller
         $id = $request->session()->get('agendafacil.visitante_id');
 
         if (! $id) {
+            return null;
+        }
+
+        // Sessão local do fluxo vale 2h (validação por widget ou 4 dígitos).
+        $acessoEm = (int) $request->session()->get('agendafacil.acesso_em', 0);
+        if ($acessoEm > 0 && (time() - $acessoEm) > TelegramValidacaoController::VALIDADE_SEGUNDOS) {
+            $request->session()->forget('agendafacil');
+
             return null;
         }
 
