@@ -55,6 +55,7 @@
         "LOG_CHANNEL": "stderr",
         "LOG_PATH": "/tmp/laravel.log",
         "QUEUE_CONNECTION": "sync",
-        "SESSION_DRIVER": "database"
+        "SESSION_DRIVER": "database",
+        "SESSION_LIFETIME": "120"
     }
 }

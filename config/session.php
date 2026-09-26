@@ -35,7 +35,10 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    // Fallback para 120: env vazia/zerada no servidor resultava em
+    // lifetime 0 → cookies com Max-Age=0 (descartados na hora) → 419
+    // em todo POST, pois cada request criava uma sessão nova.
+    'lifetime' => (int) env('SESSION_LIFETIME', 120) ?: 120,
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 

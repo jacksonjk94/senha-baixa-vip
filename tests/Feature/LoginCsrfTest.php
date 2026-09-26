@@ -41,4 +41,32 @@ class LoginCsrfTest extends TestCase
         $resposta->assertRedirect(route('admin.inicio'));
         $this->assertAuthenticatedAs($usuario);
     }
+
+    /**
+     * Regressão do 419 em produção: os cookies de sessão/XSRF precisam
+     * sair com validade futura. Com lifetime zerado eles saíam com
+     * Max-Age=0 (descartados na hora) e cada request criava sessão nova.
+     */
+    public function test_cookies_de_sessao_saem_com_validade_futura(): void
+    {
+        $resposta = $this->get('/login');
+        $resposta->assertOk();
+
+        $cookies = [];
+
+        foreach ($resposta->headers->getCookies() as $cookie) {
+            $cookies[$cookie->getName()] = $cookie;
+        }
+
+        $this->assertArrayHasKey(config('session.cookie'), $cookies);
+        $this->assertArrayHasKey('XSRF-TOKEN', $cookies);
+
+        foreach (['XSRF-TOKEN', config('session.cookie')] as $nome) {
+            $this->assertGreaterThan(
+                time() + 3600,
+                $cookies[$nome]->getExpiresTime(),
+                "Cookie {$nome} deve expirar no futuro"
+            );
+        }
+    }
 }
