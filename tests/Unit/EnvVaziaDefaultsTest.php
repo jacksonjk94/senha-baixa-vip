@@ -70,8 +70,8 @@ class EnvVaziaDefaultsTest extends TestCase
         $this->assertSame('users', $auth['defaults']['passwords']);
 
         $hashing = require config_path('hashing.php');
-        $this->assertSame('bcrypt', $hashing['default']);
-        $this->assertSame(10, $hashing['drivers']['bcrypt']['rounds']);
+        $this->assertSame('bcrypt', $hashing['driver']);
+        $this->assertSame(12, $hashing['bcrypt']['rounds']);
 
         $cache = require config_path('cache.php');
         $this->assertNotSame('', $cache['default']);
@@ -97,5 +97,41 @@ class EnvVaziaDefaultsTest extends TestCase
         $app = require config_path('app.php');
         $this->assertNotSame('', $app['maintenance']['driver']);
         $this->assertNotSame('', $app['maintenance']['store']);
+    }
+
+    /**
+     * Regressão do 302 no login: no Laravel 12 o bootstrap faz
+     * array_merge do config base do framework com o da aplicação, e o
+     * HashManager lê `hashing.driver`. Com HASH_DRIVER="" no Dashboard, a
+     * chave do framework resolvia para "" — só a chave `driver` do app
+     * (com fallback) salva o merge.
+     */
+    public function test_merge_do_hashing_nunca_resolve_driver_vazio(): void
+    {
+        $this->setEnvVazia(['HASH_DRIVER', 'BCRYPT_ROUNDS']);
+
+        $base = require base_path('vendor/laravel/framework/config/hashing.php');
+        $app = require config_path('hashing.php');
+
+        // Prova que o framework sozinho quebra (é o que acontecia em prod).
+        $this->assertSame('', $base['driver']);
+
+        $merged = array_merge($base, $app);
+
+        $this->assertSame('bcrypt', $merged['driver']);
+        $this->assertSame(12, $merged['bcrypt']['rounds']);
+    }
+
+    /** @param string[] $chaves */
+    private function setEnvVazia(array $chaves): void
+    {
+        foreach ($chaves as $chave) {
+            if (! array_key_exists($chave, $this->originais)) {
+                $this->originais[$chave] = getenv($chave) === false ? null : getenv($chave);
+            }
+            putenv($chave.'=');
+            $_ENV[$chave] = '';
+            $_SERVER[$chave] = '';
+        }
     }
 }
