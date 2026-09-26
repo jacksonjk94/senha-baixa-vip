@@ -27,6 +27,7 @@ Vercel → Projeto → Settings → Environment Variables (marcar **Production**
 | `DB_PASSWORD` | senha (secret, sem aspas) |
 | `DB_SSLMODE` | `require` (se o provedor exigir SSL — Supabase/Neon/Render exigem) |
 | `CACHE_STORE` | `database` |
+| `SESSION_DRIVER` | `database` (sessões em cookie são instáveis no serverless e causavam 419 no login — a tabela `sessions` já vem nas migrations) |
 | `APP_KEY` | `base64:...` válido (gerar com `php artisan key:generate --show`) |
 | `N8N_WORKER_SECRET` | mesma chave do worker de disparos |
 | `TELEGRAM_TOKEN` | token do BotFather |

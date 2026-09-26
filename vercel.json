@@ -55,6 +55,6 @@
         "LOG_CHANNEL": "stderr",
         "LOG_PATH": "/tmp/laravel.log",
         "QUEUE_CONNECTION": "sync",
-        "SESSION_DRIVER": "cookie"
+        "SESSION_DRIVER": "database"
     }
 }

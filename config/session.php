@@ -18,7 +18,10 @@ return [
     |
     */
 
-    'driver' => env('SESSION_DRIVER', env('VERCEL') ? 'cookie' : 'database'),
+    // Sessões server-side (database): sessões em cookie são frágeis no
+    // serverless (cookies gigantes/instáveis → token CSRF instável → 419).
+    // A tabela `sessions` já existe nas migrations.
+    'driver' => env('SESSION_DRIVER', 'database'),
 
     /*
     |--------------------------------------------------------------------------
