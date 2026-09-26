@@ -71,7 +71,7 @@
 </main>
 
 <footer class="text-center text-muted small pb-4">
-    AgendaFǭcil �� {{ date('Y') }}
+    AgendaFácil · {{ date('Y') }}
 </footer>
 <script>
     // Botões de formulário/etapa: spinner + desabilitado ao enviar (evita duplo clique).
