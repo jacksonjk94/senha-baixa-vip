@@ -41,7 +41,7 @@
     ],
     "env": {
         "APP_ENV": "production",
-        "APP_DEBUG": "true",
+        "APP_DEBUG": "false",
         "APP_URL": "https://agendafacil-teste.vercel.app",
 
         "APP_CONFIG_CACHE": "/tmp/config.php",
@@ -52,9 +52,6 @@
         "VIEW_COMPILED_PATH": "/tmp",
 
         "APP_MAINTENANCE_DRIVER": "cache",
-        "CACHE_STORE": "array",
-        "DB_CONNECTION": "sqlite",
-        "DB_DATABASE": "/tmp/database.sqlite",
         "LOG_CHANNEL": "stderr",
         "LOG_PATH": "/tmp/laravel.log",
         "QUEUE_CONNECTION": "sync",
