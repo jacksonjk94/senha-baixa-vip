@@ -27,7 +27,7 @@ Vercel → Projeto → Settings → Environment Variables (marcar **Production**
 | `DB_PASSWORD` | senha (secret, sem aspas) |
 | `DB_SSLMODE` | `require` (se o provedor exigir SSL — Supabase/Neon/Render exigem) |
 | `CACHE_STORE` | `database` |
-| `SESSION_DRIVER` | `database` (sessões em cookie são instáveis no serverless e causavam 419 no login — a tabela `sessions` já vem nas migrations) |
+| `SESSION_DRIVER` | `database` (sessões em cookie são instáveis no serverless e causavam 419 no login — a tabela `sessions` já vem nas migrations). **Nunca `array` nem `file`**: sem persistência entre instâncias, cada request cria sessão nova e **todo POST dá 419 mesmo com header correto** |
 | `SESSION_LIFETIME` | `120` — **obrigatório e nunca vazio**: valor vazio/0 faz os cookies saírem com `Max-Age=0` (descartados na hora), cada request cria sessão nova e **todo POST dá 419** |
 | `APP_KEY` | `base64:...` válido (gerar com `php artisan key:generate --show`) |
 | `N8N_WORKER_SECRET` | mesma chave do worker de disparos |
@@ -67,3 +67,13 @@ Confira: tabela `migrations` deve listar até `0001_01_01_000015_grupo_modo_hora
 - [ ] Migrations rodadas no pgsql (erro passa a ser "relation ... does not exist" se faltar)
 - [ ] `DB_SSLMODE=require` se o erro for de SSL/conexão recusada
 - [ ] `APP_KEY` definido (sessões/cookies quebram sem ele)
+
+## Se der 419 persistente no login (mesmo com header correto)
+
+Sessão com amnésia entre requests. Verifique **nesta ordem**:
+
+1. `SESSION_DRIVER` no dashboard = `database` (**não** `array`/`file`/`cookie` instável) — com `array`, cada request de um teste limpo com jar perfeito e header correto ainda retorna 419 (verificado em 26/09).
+2. `SESSION_LIFETIME` = `120` e **não vazio** (vazio zera o lifetime → cookies `Max-Age=0`).
+3. `APP_DEBUG` = `false` (se ainda vaza stack trace, o dashboard está vencendo o `vercel.json` — vale para todas as chaves acima).
+4. Tabela `sessions` existe no pgsql (`migrate --force`).
+5. Redeploy após qualquer mudança de env.
