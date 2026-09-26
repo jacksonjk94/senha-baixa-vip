@@ -41,7 +41,11 @@ class AuthenticatedSessionController extends Controller
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            Log::error('Falha no login', ['erro' => $e->getMessage()]);
+            Log::error('Falha no login', [
+                'classe' => get_class($e),
+                'erro' => $e->getMessage(),
+                'arquivo' => $e->getFile().':'.$e->getLine(),
+            ]);
 
             throw ValidationException::withMessages([
                 'email' => 'Não foi possível entrar agora. Tente novamente em instantes.',
