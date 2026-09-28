@@ -120,7 +120,16 @@ class AgendaFacilFlowTest extends TestCase
         $resposta->assertOk();
         $resposta->assertSee('Senha normal P1 e Ala');
         $resposta->assertSee('Roberta lallison');
-        $resposta->assertSee('21:00');
+        // Data/hora sempre partem da sugestão (hoje + 30min arredondado),
+        // nunca do agendamento anterior — dias anteriores bloqueados via min.
+        $esperado = now()->addMinutes(30)->startOfMinute();
+        $resto = ((int) $esperado->format('i')) % 10;
+        if ($resto !== 0) {
+            $esperado->addMinutes(10 - $resto);
+        }
+        $resposta->assertSee('value="'.$esperado->format('Y-m-d').'"', false);
+        $resposta->assertSee('value="'.$esperado->format('H:i').'"', false);
+        $resposta->assertSee('min="'.now()->format('Y-m-d').'"', false);
         $resposta->assertSee('Aberto SEM OK');
         $resposta->assertSee('13981388690');
     }
@@ -178,13 +187,117 @@ class AgendaFacilFlowTest extends TestCase
         ])->post(route('agendafacil.resumo.confirmar'));
 
         $confirmacao->assertRedirect(route('agendafacil.codigo'));
-        $this->assertSame($agendamento->id, session('agendafacil.agendamento_id'));
+        // Data diferente = novo agendamento (não remarca o anterior).
+        $novoId = session('agendafacil.agendamento_id');
+        $this->assertNotEquals($agendamento->id, $novoId);
         $this->assertDatabaseHas('agendamentos', [
-            'id' => $agendamento->id,
+            'id' => $novoId,
             'grupo_telegram_id' => $grupoNovo->id,
             'texto' => 'Jackson Dos Santos',
             'destino_id' => $grupoNovo->chat_id,
             'data_hora_envio' => $quando->format('Y-m-d H:i:s'),
+        ]);
+        // O anterior (outro dia) permanece intacto.
+        $this->assertDatabaseHas('agendamentos', [
+            'id' => $agendamento->id,
+            'grupo_telegram_id' => $grupoAtual->id,
+        ]);
+    }
+
+    public function test_mesmo_dia_atualiza_horario_em_vez_de_criar_novo(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '1235']);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Dia',
+            'chat_id' => '-100000011',
+            'tipo' => 'supergroup',
+            'ativo' => true,
+        ]);
+        $agendamento = Agendamento::factory()->create([
+            'user_id' => $usuario->id,
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => 'Antigo',
+            'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id,
+            'destino_nome' => $grupo->nome,
+            'data_hora_envio' => now()->addHours(2)->startOfMinute(),
+            'status' => Agendamento::STATUS_PENDENTE,
+        ]);
+
+        $mesmoDia = now()->addHours(3)->startOfMinute();
+        // Garante mesmo dia (evita virada de dia no teste).
+        if ($mesmoDia->toDateString() !== now()->toDateString()) {
+            $mesmoDia = now()->addMinutes(40)->startOfMinute();
+        }
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.confirmar-dados.salvar'), [
+                'grupo_id' => $grupo->id,
+                'mensagem' => 'Novo Horario',
+                'data_envio' => $mesmoDia->toDateString(),
+                'hora_envio' => $mesmoDia->format('H:i'),
+            ])
+            ->assertRedirect(route('agendafacil.resumo'));
+
+        $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.rascunho' => session('agendafacil.rascunho'),
+        ])->post(route('agendafacil.resumo.confirmar'))
+            ->assertRedirect(route('agendafacil.codigo'));
+
+        $this->assertSame($agendamento->id, session('agendafacil.agendamento_id'));
+        $this->assertDatabaseCount('agendamentos', 1);
+        $this->assertDatabaseHas('agendamentos', [
+            'id' => $agendamento->id,
+            'texto' => 'Novo Horario',
+            'data_hora_envio' => $mesmoDia->format('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function test_agendamento_enviado_nunca_e_reaproveitado(): void
+    {
+        $usuario = User::factory()->create(['ultimos_digitos_telefone' => '1236']);
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Enviado',
+            'chat_id' => '-100000012',
+            'tipo' => 'supergroup',
+            'ativo' => true,
+        ]);
+        $enviado = Agendamento::factory()->create([
+            'user_id' => $usuario->id,
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => 'Ja foi',
+            'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id,
+            'destino_nome' => $grupo->nome,
+            'data_hora_envio' => now()->subHour(),
+            'status' => Agendamento::STATUS_ENVIADO,
+        ]);
+
+        $quando = now()->addHour()->startOfMinute();
+
+        $this->withSession(['agendafacil.visitante_id' => $usuario->id])
+            ->post(route('agendafacil.confirmar-dados.salvar'), [
+                'grupo_id' => $grupo->id,
+                'mensagem' => 'Novo Pedido',
+                'data_envio' => $quando->toDateString(),
+                'hora_envio' => $quando->format('H:i'),
+            ])
+            ->assertRedirect(route('agendafacil.resumo'));
+
+        $this->withSession([
+            'agendafacil.visitante_id' => $usuario->id,
+            'agendafacil.rascunho' => session('agendafacil.rascunho'),
+        ])->post(route('agendafacil.resumo.confirmar'))
+            ->assertRedirect(route('agendafacil.codigo'));
+
+        $novoId = session('agendafacil.agendamento_id');
+        $this->assertNotEquals($enviado->id, $novoId);
+        $this->assertSame(Agendamento::STATUS_ENVIADO, $enviado->refresh()->status);
+        $this->assertDatabaseHas('agendamentos', [
+            'id' => $novoId,
+            'texto' => 'Novo Pedido',
+            'status' => Agendamento::STATUS_PENDENTE,
         ]);
     }
 

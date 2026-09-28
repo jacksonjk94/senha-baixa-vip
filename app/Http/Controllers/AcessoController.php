@@ -45,6 +45,9 @@ class AcessoController extends Controller
                 ->withInput();
         }
 
+        // Novo fluxo sempre parte de rascunho limpo (evita reaproveitar
+        // data/hora antigas digitadas em tentativa anterior).
+        $request->session()->forget('agendafacil.rascunho');
         // Guarda o visitante identificado na sessão do fluxo (sem logar no sistema).
         $request->session()->put('agendafacil.visitante_id', $usuario->id);
         $request->session()->put('agendafacil.digitos_ok', true);
@@ -79,6 +82,9 @@ class AcessoController extends Controller
             'mensagemInicial' => $this->mensagemSugerida($usuario, $agendamento),
             'sugestaoData' => $sugestao->format('Y-m-d'),
             'sugestaoHora' => $sugestao->format('H:i'),
+            // Data mínima selecionável (hoje): dias anteriores ficam
+            // indisponíveis no input date.
+            'dataMinima' => now()->format('Y-m-d'),
             'rascunho' => $rascunho,
         ]);
     }
@@ -164,7 +170,7 @@ class AcessoController extends Controller
             return back()->withErrors($resolucao['erro'])->withInput();
         }
 
-        $agendamento = $this->agendamentoAtual($request, $usuario);
+        $agendamento = $this->agendamentoPendenteParaData($request, $usuario, $resolucao['data_hora']);
         $excetoId = $agendamento?->id;
 
         if ($grupo->ehFechado()) {
@@ -249,7 +255,7 @@ class AcessoController extends Controller
                 ->withErrors($resolucao['erro']);
         }
 
-        $agendamento = $this->agendamentoAtual($request, $usuario);
+        $agendamento = $this->agendamentoPendenteParaData($request, $usuario, $resolucao['data_hora']);
         $excetoId = $agendamento?->id;
 
         if ($grupo->ehFechado()) {
@@ -497,8 +503,10 @@ class AcessoController extends Controller
     }
 
     /**
-     * Agendamento do visitante exibido no fluxo único (/acesso):
-     * o mais recente (pendente primeiro). Guarda o id na sessão.
+     * Agendamento do visitante exibido no fluxo (/acesso, /codigo,
+     * /concluido): somente pendentes. Nunca reaproveita agendamento já
+     * disparado (enviado), com erro ou cancelado — um novo fluxo parte
+     * de sugestão nova (hoje + 30min) e só atualiza pendente do mesmo dia.
      */
     protected function agendamentoAtual(Request $request, User $usuario): ?Agendamento
     {
@@ -507,14 +515,48 @@ class AcessoController extends Controller
         if ($idSessao) {
             $daSessao = Agendamento::with('grupo')->find($idSessao);
 
-            if ($daSessao && (int) $daSessao->user_id === (int) $usuario->id) {
+            if ($daSessao
+                && (int) $daSessao->user_id === (int) $usuario->id
+                && $daSessao->status === Agendamento::STATUS_PENDENTE) {
                 return $daSessao;
             }
         }
 
         return Agendamento::with('grupo')
             ->where('user_id', $usuario->id)
-            ->orderByRaw("CASE WHEN status = 'pendente' THEN 0 ELSE 1 END")
+            ->where('status', Agendamento::STATUS_PENDENTE)
+            ->latest('data_hora_envio')
+            ->first();
+    }
+
+    /**
+     * Regra de criação vs. atualização:
+     * - mesmo dia (data do envio) + pendente do mesmo visitante → atualiza
+     *   o horário (reaproveita o registro);
+     * - data diferente → retorna null para cadastrar um novo agendamento;
+     * - enviado/erro/cancelado nunca são reaproveitados.
+     */
+    protected function agendamentoPendenteParaData(Request $request, User $usuario, \DateTimeInterface $dataHora): ?Agendamento
+    {
+        $dia = \Carbon\Carbon::parse($dataHora)->toDateString();
+
+        $idSessao = $request->session()->get('agendafacil.agendamento_id');
+
+        if ($idSessao) {
+            $daSessao = Agendamento::find($idSessao);
+
+            if ($daSessao
+                && (int) $daSessao->user_id === (int) $usuario->id
+                && $daSessao->status === Agendamento::STATUS_PENDENTE
+                && \Carbon\Carbon::parse($daSessao->data_hora_envio)->toDateString() === $dia) {
+                return $daSessao->load('grupo');
+            }
+        }
+
+        return Agendamento::with('grupo')
+            ->where('user_id', $usuario->id)
+            ->where('status', Agendamento::STATUS_PENDENTE)
+            ->whereDate('data_hora_envio', $dia)
             ->latest('data_hora_envio')
             ->first();
     }

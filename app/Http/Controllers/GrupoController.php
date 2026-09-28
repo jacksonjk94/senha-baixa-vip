@@ -112,14 +112,16 @@ class GrupoController extends Controller
         if ($idSessao) {
             $daSessao = Agendamento::with('grupo')->find($idSessao);
 
-            if ($daSessao && (int) $daSessao->user_id === (int) $usuario->id) {
+            if ($daSessao
+                && (int) $daSessao->user_id === (int) $usuario->id
+                && $daSessao->status === Agendamento::STATUS_PENDENTE) {
                 return $daSessao;
             }
         }
 
         return Agendamento::with('grupo')
             ->where('user_id', $usuario->id)
-            ->orderByRaw("CASE WHEN status = 'pendente' THEN 0 ELSE 1 END")
+            ->where('status', Agendamento::STATUS_PENDENTE)
             ->latest('data_hora_envio')
             ->first();
     }
