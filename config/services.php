@@ -43,6 +43,13 @@ return [
         'token' => env('TELEGRAM_TOKEN'),
     ],
 
+    'telegram_mtproto' => [
+        'api_id' => env('TELEGRAM_API_ID'),
+        'api_hash' => env('TELEGRAM_API_HASH'),
+        'url' => env('TELEGRAM_MTPROTO_URL', 'http://127.0.0.1:3037'),
+        'service_token' => env('TELEGRAM_MTPROTO_SERVICE_TOKEN'),
+    ],
+
     'n8n' => [
         'secret' => env('N8N_WORKER_SECRET'),
     ],

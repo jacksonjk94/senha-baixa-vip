@@ -1,0 +1,13 @@
+{
+  "name": "agenda-facil-telegram-mtproto",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.5",
+    "teleproto": "^1.229.1"
+  }
+}

@@ -23,7 +23,15 @@ return new class extends Migration
         }
 
         if ($driver === 'mysql') {
-            DB::statement('ALTER TABLE users MODIFY email VARCHAR(255) NULL');
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropUnique('users_email_unique');
+            });
+
+            DB::statement('ALTER TABLE users MODIFY email VARCHAR(191) NULL');
+
+            Schema::table('users', function (Blueprint $table) {
+                $table->unique('email');
+            });
 
             return;
         }
@@ -50,7 +58,15 @@ return new class extends Migration
         }
 
         if ($driver === 'mysql') {
-            DB::statement('ALTER TABLE users MODIFY email VARCHAR(255) NOT NULL');
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropUnique('users_email_unique');
+            });
+
+            DB::statement('ALTER TABLE users MODIFY email VARCHAR(191) NOT NULL');
+
+            Schema::table('users', function (Blueprint $table) {
+                $table->unique('email');
+            });
 
             return;
         }
@@ -62,7 +78,7 @@ return new class extends Migration
         }
 
         Schema::table('users', function (Blueprint $table) {
-            $table->string('email')->nullable(false)->change();
+            $table->string('email', 255)->nullable(false)->change();
         });
     }
 
@@ -80,7 +96,7 @@ return new class extends Migration
             $table->boolean('active')->default(false);
             $table->string('name');
             $table->string('tax_id')->unique()->nullable();
-            $table->string('email')->unique()->nullable($nullable);
+            $table->string('email', 255)->unique()->nullable($nullable);
             $table->string('username')->unique()->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');

@@ -10,10 +10,8 @@ use Illuminate\Http\Request;
 class GrupoController extends Controller
 {
     /**
-     * Etapa 4 — Confirmar o grupo (prints 06/07.jpeg).
-     * Exibe SOMENTE o grupo do agendamento confirmado na etapa 2,
-     * com o botão "Eu confirmo que esse grupo é o correto".
-     * Exige etapas 1–3 concluídas (visitante + código ok).
+    * Etapa 4 — Lista os grupos ativos vinculados ao visitante e confirma
+    * qual receberá o disparo. Exige validação pelo Login Widget Telegram.
      */
     public function selecionar(Request $request)
     {
@@ -23,20 +21,26 @@ class GrupoController extends Controller
             return redirect()->route('agendafacil.acesso');
         }
 
-        if (! $request->session()->get('agendafacil.codigo_ok')) {
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
             return redirect()->route('agendafacil.codigo');
         }
 
         $agendamento = $this->agendamentoAtual($request, $visitante);
         $grupo = $agendamento?->grupo;
 
-        if (! $grupo) {
+        $grupos = GrupoTelegram::where('usuario_id', $visitante->id)
+            ->ativos()
+            ->ordenados()
+            ->get();
+
+        if ($grupos->isEmpty()) {
             return redirect()
                 ->route('agendafacil.confirmar-dados')
-                ->with('aviso', 'Nenhum grupo vinculado ao seu agendamento. Confira os dados.');
+                ->with('aviso', 'Nenhum grupo ativo vinculado ao seu usuário. Verifique os grupos cadastrados.');
         }
 
         return view('agendafacil.selecionar-grupo', [
+            'grupos' => $grupos,
             'grupo' => $grupo,
             'agendamento' => $agendamento,
         ]);
@@ -53,7 +57,7 @@ class GrupoController extends Controller
             return redirect()->route('agendafacil.acesso');
         }
 
-        if (! $request->session()->get('agendafacil.codigo_ok')) {
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
             return redirect()->route('agendafacil.codigo');
         }
 
@@ -66,12 +70,18 @@ class GrupoController extends Controller
             'grupo_id.exists' => 'Grupo selecionado inválido.',
         ]);
 
-        $grupo = GrupoTelegram::find($dados['grupo_id']);
+        $grupo = GrupoTelegram::where('id', $dados['grupo_id'])
+            ->where('usuario_id', $visitante->id)
+            ->ativos()
+            ->firstOrFail();
 
-        if ($agendamento?->grupo_telegram_id && (int) $grupo->id !== (int) $agendamento->grupo_telegram_id) {
-            return back()
-                ->withErrors(['grupo_id' => 'Este não é o grupo do seu agendamento.'])
-                ->withInput();
+        if ($agendamento) {
+            $agendamento->update([
+                'grupo_telegram_id' => $grupo->id,
+                'destino_tipo' => Agendamento::DESTINO_GRUPO,
+                'destino_id' => (string) $grupo->chat_id,
+                'destino_nome' => $grupo->nome,
+            ]);
         }
 
         $request->session()->put('agendafacil.grupo', [
@@ -102,7 +112,18 @@ class GrupoController extends Controller
     {
         $id = $request->session()->get('agendafacil.visitante_id');
 
-        return $id ? User::find($id) : null;
+        if (! $id) {
+            return null;
+        }
+
+        $acessoEm = (int) $request->session()->get('agendafacil.acesso_em', 0);
+        if ($acessoEm > 0 && (time() - $acessoEm) > TelegramValidacaoController::VALIDADE_SEGUNDOS) {
+            $request->session()->forget('agendafacil');
+
+            return null;
+        }
+
+        return User::find($id);
     }
 
     protected function agendamentoAtual(Request $request, User $usuario): ?Agendamento

@@ -4,8 +4,8 @@
 @section('conteudo')
 <div class="tg-steps">
     <div class="tg-step active">1. Acesso</div>
-    <div class="tg-step">2. Confirmar os Dados</div>
-    <div class="tg-step">3. Código</div>
+    <div class="tg-step">2. Código</div>
+    <div class="tg-step">3. Confirmar os Dados</div>
     <div class="tg-step">4. Grupos do Telegram</div>
     <div class="tg-step">5. Concluído</div>
 </div>

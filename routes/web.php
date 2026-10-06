@@ -36,7 +36,7 @@ Route::get('/agendamento/{agendamento}/confirmacao', [AgendamentoController::cla
 Route::get('/meus-agendamentos', [AgendamentoController::class, 'meus'])->name('agendamento.meus');
 
 // ── AgendaFácil · Fluxo único (Blade, identidade Telegram) ──
-// 1. Acesso → 2. Confirmar os Dados → 3. Código → 4. Grupos do Telegram → 5. Concluído
+// 1. Acesso → 2. Código → 3. Confirmar os Dados → 4. Grupos do Telegram → 5. Concluído
 Route::get('/acesso', [AcessoController::class, 'acesso'])->name('agendafacil.acesso');
 Route::post('/acesso', [AcessoController::class, 'validarAcesso'])->name('agendafacil.acesso.validar');
 Route::get('/confirmar-dados', [AcessoController::class, 'confirmarDados'])->name('agendafacil.confirmar-dados');
@@ -59,10 +59,16 @@ Route::post('/cadastro', [CadastroVisitanteController::class, 'salvar'])->name('
 Route::get('/telegram/connect', [TelegramController::class, 'connect'])->name('telegram.connect');
 Route::get('/telegram/callback', [TelegramController::class, 'callback'])->name('telegram.callback');
 
-// Validação da pessoa pelo próprio Telegram (Login Widget — etapa 3, /codigo).
+// Validação da pessoa pelo próprio Telegram (Login Widget — etapa 2, /codigo).
 // Perna independente do robô: só confirma identidade, cria sessão local de 2h.
-// Confirmação da etapa 3 (/codigo): login no Telegram vinculado ao cadastro.
+// Confirmação da etapa 2 (/codigo): login no Telegram vinculado ao cadastro.
 Route::get('/telegram/confirmar-callback', [TelegramValidacaoController::class, 'confirmar'])->name('telegram.confirmar-callback');
+Route::get('/telegram/teste-grupos', [TelegramValidacaoController::class, 'testeGrupos'])->name('telegram.grupos-teste');
+Route::get('/telegram/teste-grupos/callback', [TelegramValidacaoController::class, 'confirmarTesteGrupos'])->name('telegram.grupos-teste.callback');
+Route::get('/telegram/conta/autorizar', [TelegramValidacaoController::class, 'autorizacaoMtproto'])->name('telegram.mtproto.autorizacao');
+Route::post('/telegram/conta/enviar-codigo', [TelegramValidacaoController::class, 'enviarCodigoMtproto'])->middleware('throttle:3,10')->name('telegram.mtproto.enviar-codigo');
+Route::post('/telegram/conta/verificar', [TelegramValidacaoController::class, 'verificarCodigoMtproto'])->middleware('throttle:6,10')->name('telegram.mtproto.verificar');
+Route::post('/telegram/conta/cancelar', [TelegramValidacaoController::class, 'cancelarMtproto'])->name('telegram.mtproto.cancelar');
 Route::post('/sair', [TelegramValidacaoController::class, 'sair'])->name('agendafacil.sair');
 Route::post('/telegram/disconnect', [TelegramController::class, 'disconnect'])->middleware('auth')->name('telegram.disconnect');
 

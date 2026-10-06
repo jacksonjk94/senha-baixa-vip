@@ -4,8 +4,8 @@
 @section('conteudo')
 <div class="tg-steps">
     <div class="tg-step done">1. Acesso ✓</div>
-    <div class="tg-step active">2. Confirmar os Dados</div>
-    <div class="tg-step">3. Código</div>
+    <div class="tg-step done">2. Código ✓</div>
+    <div class="tg-step active">3. Confirmar os Dados</div>
     <div class="tg-step">4. Grupos do Telegram</div>
     <div class="tg-step">5. Concluído</div>
 </div>
@@ -16,11 +16,11 @@
         <h1 class="h4 mb-3">Confirmar dados</h1>
 
         @if ($grupos->isEmpty())
-            <div class="alert alert-warning">Os grupos ainda estão sendo configurados. Tente novamente em instantes ou entre em contato.</div>
+            <div class="alert alert-warning">Nenhum grupo conhecido pelo bot foi encontrado para esta conta. Verifique se o bot está nos grupos e é administrador para consultar os participantes.</div>
         @else
         <form method="POST" action="{{ route('agendafacil.confirmar-dados.salvar') }}">
             @csrf
-            <label class="form-label fw-semibold" for="grupo_id">Grupo de destino</label>
+            <label class="form-label fw-semibold" for="grupo_id">Grupo da sua conta onde o disparo será efetuado</label>
             <select id="grupo_id" name="grupo_id" class="input-telegram" required>
                 @foreach ($grupos as $grupo)
                     <option value="{{ $grupo->id }}"

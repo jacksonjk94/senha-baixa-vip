@@ -4,8 +4,8 @@
 @section('conteudo')
 <div class="tg-steps">
     <div class="tg-step done">1. Acesso ✓</div>
-    <div class="tg-step done">2. Confirmar os Dados ✓</div>
-    <div class="tg-step active">3. Código</div>
+    <div class="tg-step active">2. Código</div>
+    <div class="tg-step">3. Confirmar os Dados</div>
     <div class="tg-step">4. Grupos do Telegram</div>
     <div class="tg-step">5. Concluído</div>
 </div>
@@ -14,7 +14,10 @@
     <div class="card-body p-4">
         <p class="text-uppercase fw-bold small mb-1" style="color:#0B6B4F;letter-spacing:.04em">Login Telegram</p>
         <h1 class="h4 mb-1">Confirme que é você</h1>
-        <p class="text-muted">Faça login com a sua conta do Telegram para confirmar. Isso <strong>não</strong> dá acesso do sistema à sua conta — é só uma verificação de identidade.</p>
+        <p class="text-muted">Confirme sua identidade com a conta Telegram vinculada ao cadastro.</p>
+        @if ($mtprotoConfigurado)
+            <div class="alert alert-info small">Depois desta confirmação, você poderá autorizar a consulta dos grupos da sua conta em uma etapa separada. Essa autorização não será usada para enviar mensagens.</div>
+        @endif
 
         @error('telegram')
             <div class="alert alert-danger">{{ $message }}</div>

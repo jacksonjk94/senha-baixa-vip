@@ -6,17 +6,19 @@
 
 <div class="d-flex flex-wrap gap-2 my-3">
     <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalListarTelegram">📡 Listar do Telegram</button>
+    <a class="btn btn-outline-secondary" href="{{ route('telegram.grupos-teste') }}" target="_blank" rel="noopener">Testar login e grupos</a>
 </div>
 
 <div class="card stat-card my-3"><div class="card-body">
 <form method="POST" action="{{ route('admin.grupos.salvar') }}" class="row g-2">
     @csrf
-    <div class="col-md-3"><input name="nome" class="form-control" placeholder="Nome do grupo" required></div>
+    <div class="col-md-2"><input name="nome" class="form-control" placeholder="Nome do grupo" required></div>
     <div class="col-md-2"><input name="chat_id" class="form-control" placeholder="chat_id (ex.: -100123...)" required></div>
+    <div class="col-md-3"><select name="usuario_id" class="form-select" required><option value="">Conta vinculada *</option>@foreach ($usuarios as $usuario)<option value="{{ $usuario->id }}">{{ $usuario->name }}{{ $usuario->telegram_username ? ' (@'.$usuario->telegram_username.')' : ($usuario->telegram_id ? ' (ID '.$usuario->telegram_id.')' : '') }}</option>@endforeach</select></div>
     <div class="col-md-2"><select name="tipo" class="form-select"><option value="group">group</option><option value="supergroup">supergroup</option><option value="channel">channel</option></select></div>
-    <div class="col-md-2"><select name="modo" class="form-select" title="Regra de envio"><option value="aberto">Aberto</option><option value="fechado">Fechado</option></select></div>
+    <div class="col-md-1"><select name="modo" class="form-select" title="Regra de envio"><option value="aberto">Aberto</option><option value="fechado">Fechado</option></select></div>
     <div class="col-md-1"><input name="ordem" type="number" min="0" max="9999" class="form-control" placeholder="ordem" title="Ordem de exibição"></div>
-    <div class="col-md-2"><button class="btn btn-primary w-100">Adicionar</button></div>
+    <div class="col-md-1"><button class="btn btn-primary w-100">Adicionar</button></div>
     <div class="col-md-3"><input name="horario_abertura" type="time" class="form-control" title="Fechado: abre para agendamento às"></div>
     <div class="col-md-3"><input name="horario_fechamento" type="time" class="form-control" title="Fechado: fecha para agendamento às"></div>
     <div class="col-md-3"><input name="horario_disparo" type="time" class="form-control" title="Fechado: envia em bloco às"></div>
@@ -26,12 +28,13 @@
 
 <div class="card stat-card"><div class="card-body p-0"><div class="af-table-wrap">
 <table class="table mb-0">
-    <thead><tr><th>Nome</th><th>chat_id</th><th>Tipo</th><th>Regra</th><th>Horários</th><th>Ativo</th><th>Ação</th></tr></thead>
+    <thead><tr><th>Nome</th><th>chat_id</th><th>Conta vinculada</th><th>Tipo</th><th>Regra</th><th>Horários</th><th>Ativo</th><th>Ação</th></tr></thead>
     <tbody>
     @forelse ($grupos as $g)
         <tr>
             <td data-label="Nome">{{ $g->nome }}</td>
             <td data-label="Chat ID"><code>{{ $g->chat_id }}</code></td>
+            <td data-label="Conta vinculada">{{ $g->usuario?->name ?? 'Sem vínculo' }}{{ $g->usuario?->telegram_username ? ' (@'.$g->usuario->telegram_username.')' : ($g->usuario?->telegram_id ? ' (ID '.$g->usuario->telegram_id.')' : '') }}</td>
             <td data-label="Tipo">{{ $g->tipo }}</td>
             <td data-label="Regra"><span class="badge-tg {{ $g->modo === 'fechado' ? 'badge-pendente' : 'badge-enviado' }}">{{ $g->etiquetaModo() }}</span></td>
             <td data-label="Horários"><small>{{ $g->horario_abertura?->format('H:i') ?? '—' }} / {{ $g->horario_fechamento?->format('H:i') ?? '—' }} / {{ $g->horario_disparo?->format('H:i') ?? '—' }}</small></td>
@@ -44,7 +47,7 @@
             </td>
         </tr>
     @empty
-        <tr><td colspan="7" class="text-center text-muted">Nenhum grupo cadastrado.</td></tr>
+        <tr><td colspan="8" class="text-center text-muted">Nenhum grupo cadastrado.</td></tr>
     @endforelse
     </tbody>
 </table>
@@ -61,6 +64,7 @@
             <div class="modal-body d-grid gap-3">
                 <div><label class="form-label fw-semibold">Nome *</label><input name="nome" class="form-control" maxlength="150" value="{{ $g->nome }}" required></div>
                 <div><label class="form-label fw-semibold">chat_id *</label><input name="chat_id" class="form-control" maxlength="60" value="{{ $g->chat_id }}" required></div>
+                <div><label class="form-label fw-semibold">Conta vinculada *</label><select name="usuario_id" class="form-select" required><option value="">Selecione a conta visitante</option>@foreach ($usuarios as $usuario)<option value="{{ $usuario->id }}" @selected($g->usuario_id === $usuario->id)>{{ $usuario->name }}{{ $usuario->telegram_username ? ' (@'.$usuario->telegram_username.')' : ($usuario->telegram_id ? ' (ID '.$usuario->telegram_id.')' : '') }}</option>@endforeach</select></div>
                 <div class="row g-2">
                     <div class="col-6"><label class="form-label fw-semibold">Tipo *</label><select name="tipo" class="form-select"><option value="group" @selected($g->tipo === 'group')>group</option><option value="supergroup" @selected($g->tipo === 'supergroup')>supergroup</option><option value="channel" @selected($g->tipo === 'channel')>channel</option></select></div>
                     <div class="col-6"><label class="form-label fw-semibold">Regra *</label><select name="modo" class="form-select"><option value="aberto" @selected($g->modo === 'aberto')>Aberto (horário livre)</option><option value="fechado" @selected($g->modo === 'fechado')>Fechado (rodada fixa)</option></select></div>
@@ -79,11 +83,12 @@
 </div>
 @endforeach
 
-{{-- Dialog: grupos via Bot API + cadastro dos não cadastrados --}}
+{{-- Dialog: grupos via Bot API vinculados a uma conta visitante --}}
 <div class="modal fade" id="modalListarTelegram" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg"><div class="modal-content">
-        <div class="modal-header"><h2 class="h5 mb-0">Grupos do Telegram (via Bot API)</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+        <div class="modal-header"><h2 class="h5 mb-0">Grupos conhecidos pelo bot</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
         <div class="modal-body">
+            <p class="text-muted">A lista vem dos grupos onde o bot teve atividade. Escolha a conta visitante à qual cada grupo ficará vinculado.</p>
             @if (! $telegramConfigurado)
                 <div class="alert alert-warning mb-0"><code>TELEGRAM_TOKEN</code> vazio. Preencha o token do BotFather nas variáveis de ambiente.</div>
             @elseif (empty($gruposApi))
@@ -98,17 +103,14 @@
                             <td data-label="Chat ID"><code>{{ $g['chat_id'] }}</code></td>
                             <td data-label="Tipo">{{ $g['tipo'] }}</td>
                             <td class="text-end af-cell-actions">
-                                @if (in_array($g['chat_id'], $chatIdsCadastrados, true))
-                                    <small class="text-muted">✅ já cadastrado</small>
-                                @else
-                                    <form method="POST" action="{{ route('admin.grupos.importar') }}" class="d-inline">
-                                        @csrf
-                                        <input type="hidden" name="chat_id" value="{{ $g['chat_id'] }}">
-                                        <input type="hidden" name="nome" value="{{ $g['nome'] }}">
-                                        <input type="hidden" name="tipo" value="{{ $g['tipo'] }}">
-                                        <button class="btn btn-sm btn-primary">Cadastrar</button>
-                                    </form>
-                                @endif
+                                <form method="POST" action="{{ route('admin.grupos.importar') }}" class="d-flex gap-2 justify-content-end">
+                                    @csrf
+                                    <input type="hidden" name="chat_id" value="{{ $g['chat_id'] }}">
+                                    <input type="hidden" name="nome" value="{{ $g['nome'] }}">
+                                    <input type="hidden" name="tipo" value="{{ $g['tipo'] }}">
+                                    <select name="usuario_id" class="form-select form-select-sm" required aria-label="Conta visitante do grupo"><option value="">Conta *</option>@foreach ($usuarios as $usuario)<option value="{{ $usuario->id }}">{{ $usuario->name }}</option>@endforeach</select>
+                                    <button class="btn btn-sm btn-primary text-nowrap">Vincular</button>
+                                </form>
                             </td>
                         </tr>
                     @endforeach

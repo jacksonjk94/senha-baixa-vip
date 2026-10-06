@@ -31,6 +31,18 @@ Projeto em Laravel · Curitiba/PR · 2026
 | 26/09/2026 | 3.2.2 | UX formulários | ✅ Spinner + desabilitado em todos os botões de submit (Blade global + Login Inertia); `/cadastro` com e-mail opcional (migration `000021`, `users.email` nullable) e placeholder novo; resumo com tag só da senha; `/codigo` só via Telegram (fallback oculto, sem auto-envio) + status de espera blur/focus | OpenCode (Muse Spark) |
 | 26/09/2026 | 3.2.3 | UX agendamento | ✅ `/confirmar-dados` sugere data/hora = agora + 30min arredondado p/ cima na dezena (ex: 16:56 → 17:30, com virada de dia); substitui o padrão fixo do admin quando sem valor anterior | OpenCode (Muse Spark) |
 | 26/09/2026 | 3.2.4 | UX mensagem | ✅ Visitante digita só o nome (sem exibir `xN`): sufixo digitado é removido, sistema numera na confirmação (`proximaSenhaNumero`); prévia na tag do resumo; validação sem regex | OpenCode (Muse Spark) |
+| 06/10/2026 | 3.3.0 | MTProto pessoal | 🔶 Teleproto, consentimento, código/2FA e listagem de grupos/supergrupos; testes automatizados OK, autenticação real pendente | GitHub Copilot |
+
+## ✅ v3.3.0 — Integração MTProto local (06/10/2026)
+
+- **Cliente isolado**: `services/telegram-mtproto/` usa Teleproto `1.229.1` (MIT), Node `22.12.0` e serviço HTTP local em `127.0.0.1:3037`; separado do Bot API que continua enviando disparos.
+- **Configuração**: `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_MTPROTO_URL` e `TELEGRAM_MTPROTO_SERVICE_TOKEN` em `.env`/`.env.example`. Credenciais reais não foram gravadas em código nem nos logs.
+- **Autorização**: Login Widget confirma o `telegram_id` do cadastro; consentimento explícito precede telefone e código. A senha 2FA só é pedida se a API solicitar; a identidade MTProto deve corresponder à do widget.
+- **Grupos**: lê os diálogos MTProto, inclui apenas grupo básico e supergrupo, exclui canal e chat privado, e vincula nome/`chat_id`/tipo ao visitante. Não lê nem envia mensagens pela conta pessoal.
+- **Sessões**: cliente e desafio ficam em memória até 10 min; logout após a consulta; sessão, código e senha 2FA não são persistidos. A API Node exige bearer token e valida payload/tentativas.
+- **Telas**: etapa `/codigo` informa a autorização separada; nova view de consentimento/código/2FA em `telegram.mtproto.autorizacao`; `/telegram/teste-grupos` reutiliza o fluxo e mostra os diálogos encontrados.
+- **Teste local**: instruções em `.docs/INSTRUCOES/TELEGRAM-MTPROTO-LOCAL.md`. A Vercel atual não hospeda este processo com estado em memória; produção requer serviço persistente e arquitetura própria.
+- **Validação automatizada**: `php artisan test` — 52 aprovados; `npm test` em `services/telegram-mtproto` — 3 aprovados; `php artisan view:cache` OK; `route:list --path=telegram` OK. Autenticação contra uma conta real do Telegram permanece pendente de teste local autorizado.
 
 ---
 

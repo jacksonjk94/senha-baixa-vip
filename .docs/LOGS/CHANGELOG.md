@@ -36,10 +36,22 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 23/09/2026 | 2.6.2 | Fluxo | Reenvio real do código + motivo visível — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 24/09/2026 | 2.7.0 | SenhaBaixa v2 | Fluxo público simplificado (posição, texto livre, cancelar) + botões com gradiente — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 24/09/2026 | 2.7.1 | SenhaBaixa v2 | Complemento Postgres (coluna ordem) — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 06/10/2026 | 3.3.0 | MTProto | 🔶 Listagem de grupos pessoais via Teleproto; teste local automatizado, autenticação real pendente | GitHub Copilot |
 
 ---
 
 ## 🔍 Detalhamento das implementações (v2.x)
+
+### v3.3.0 — Listagem de grupos da conta pessoal via MTProto 🔶 (06/10/2026)
+
+- Adicionado `services/telegram-mtproto/` com Teleproto `1.229.1` (cliente MTProto Node separado do Laravel/Bot API). Credenciais `TELEGRAM_API_ID`/`TELEGRAM_API_HASH` e token interno são lidos do ambiente; nenhum segredo foi copiado para os logs.
+- Serviço local em `127.0.0.1:3037`, protegido por bearer token, com operações de autenticação limitadas a 10 minutos. O fluxo aceita telefone, código no Telegram e senha 2FA quando solicitada.
+- O Login Widget identifica o visitante; quando MTProto está configurado, o sistema exige consentimento e compara o ID autenticado via MTProto com o `telegram_id` validado antes de continuar.
+- `iterDialogs` retorna somente grupos básicos e supergrupos. Canais de transmissão, conversas privadas e entidades proibidas são excluídos. O banco armazena apenas nome, `chat_id`, tipo e vínculo ao visitante.
+- Sessão MTProto somente em memória durante a tentativa; logout após listar, sem persistir `StringSession`, código ou senha 2FA. Nenhuma mensagem é lida nem enviada pela conta pessoal.
+- Nova view `agendafacil.telegram-mtproto`; `/telegram/teste-grupos` usa a mesma autorização. Instruções locais: `.docs/INSTRUCOES/TELEGRAM-MTPROTO-LOCAL.md`.
+- **Limite**: validação automatizada local; autenticação real ainda depende das credenciais no `.env` e de código confirmado pelo titular. A implementação Node em memória não está habilitada para produção/Vercel multi-instância.
+- **Validação**: `php artisan test` — 52 aprovados; `npm test` em `services/telegram-mtproto` — 3 aprovados; `php artisan view:cache` OK; `route:list --path=telegram` lista as rotas MTProto.
 
 ### v2.0.0 — Integração Socialite Telegram ✅ (23/09/2026)
 

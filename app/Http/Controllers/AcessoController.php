@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Agendamento;
 use App\Models\GrupoTelegram;
 use App\Models\User;
+use App\Services\TelegramMtprotoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -45,19 +46,19 @@ class AcessoController extends Controller
                 ->withInput();
         }
 
-        // Novo fluxo sempre parte de rascunho limpo (evita reaproveitar
-        // data/hora antigas digitadas em tentativa anterior).
-        $request->session()->forget('agendafacil.rascunho');
+        // Uma nova identificação não pode herdar autenticação ou agendamento
+        // de outro visitante que tenha usado a mesma sessão do navegador.
+        $request->session()->forget('agendafacil');
         // Guarda o visitante identificado na sessão do fluxo (sem logar no sistema).
         $request->session()->put('agendafacil.visitante_id', $usuario->id);
         $request->session()->put('agendafacil.digitos_ok', true);
         $request->session()->put('agendafacil.acesso_em', time());
 
-        return redirect()->route('agendafacil.confirmar-dados');
+        return redirect()->route('agendafacil.codigo');
     }
 
     /**
-     * Etapa 2 — Confirmar os dados (conforme print 02.jpeg).
+    * Etapa 3 — Confirmar os dados (conforme print 02.jpeg).
      * Grupo selecionável, mensagem editável e horário do disparo
      * definível; tipo de disparo e telefone são exibidos somente
      * para conferência.
@@ -70,8 +71,15 @@ class AcessoController extends Controller
             return redirect()->route('agendafacil.acesso');
         }
 
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
+            return redirect()->route('agendafacil.codigo');
+        }
+
         $agendamento = $this->agendamentoAtual($request, $usuario);
-        $grupos = GrupoTelegram::ativos()->ordenados()->get();
+        $grupos = GrupoTelegram::where('usuario_id', $usuario->id)
+            ->ativos()
+            ->ordenados()
+            ->get();
         $sugestao = $this->sugestaoEnvio();
         $rascunho = $this->rascunhoLimpo($request);
 
@@ -123,7 +131,7 @@ class AcessoController extends Controller
     }
 
     /**
-     * Etapa 2 (passo 1) — Valida grupo + mensagem + data/hora e exibe a
+    * Etapa 3 (passo 1) — Valida grupo + mensagem + data/hora e exibe a
      * tela de resumo (Item 6.2) antes da confirmação final.
      * Regras por modo do grupo (Item 4.4): fechado fixa o horário de
      * envio e respeita abertura/fechamento; aberto usa data/hora livres.
@@ -134,6 +142,10 @@ class AcessoController extends Controller
 
         if (! $usuario) {
             return redirect()->route('agendafacil.acesso');
+        }
+
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
+            return redirect()->route('agendafacil.codigo');
         }
 
         // O parâmetro xN foi removido: "Jackson x1" digitado ou vindo de
@@ -156,7 +168,9 @@ class AcessoController extends Controller
             'hora_envio.required' => 'Informe o horário que será enviado.',
         ]);
 
-        $grupo = GrupoTelegram::ativos()->find($dados['grupo_id']);
+        $grupo = GrupoTelegram::where('usuario_id', $usuario->id)
+            ->ativos()
+            ->find($dados['grupo_id']);
 
         if (! $grupo) {
             return back()
@@ -196,7 +210,7 @@ class AcessoController extends Controller
     }
 
     /**
-     * Etapa 2 (passo 2) — Tela de resumo antes da confirmação final.
+    * Etapa 3 (passo 2) — Tela de resumo antes da confirmação final.
      */
     public function resumo(Request $request)
     {
@@ -206,13 +220,19 @@ class AcessoController extends Controller
             return redirect()->route('agendafacil.acesso');
         }
 
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
+            return redirect()->route('agendafacil.codigo');
+        }
+
         $rascunho = $this->rascunhoLimpo($request);
 
         if (! $rascunho) {
             return redirect()->route('agendafacil.confirmar-dados');
         }
 
-        $grupo = GrupoTelegram::ativos()->find($rascunho['grupo_id']);
+        $grupo = GrupoTelegram::where('usuario_id', $usuario->id)
+            ->ativos()
+            ->find($rascunho['grupo_id']);
 
         if (! $grupo) {
             return redirect()->route('agendafacil.confirmar-dados')
@@ -223,8 +243,8 @@ class AcessoController extends Controller
     }
 
     /**
-     * Etapa 2 (passo 2) — Confirmação final: cria/atualiza o agendamento
-     * (definido no momento da confirmação) e segue para o código.
+    * Etapa 3 (passo 2) — Confirmação final: cria/atualiza o agendamento
+    * (definido no momento da confirmação) e segue para a seleção de grupos.
      */
     public function confirmarResumo(Request $request)
     {
@@ -234,13 +254,19 @@ class AcessoController extends Controller
             return redirect()->route('agendafacil.acesso');
         }
 
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
+            return redirect()->route('agendafacil.codigo');
+        }
+
         $rascunho = $this->rascunhoLimpo($request);
 
         if (! $rascunho) {
             return redirect()->route('agendafacil.confirmar-dados');
         }
 
-        $grupo = GrupoTelegram::ativos()->find($rascunho['grupo_id']);
+        $grupo = GrupoTelegram::where('usuario_id', $usuario->id)
+            ->ativos()
+            ->find($rascunho['grupo_id']);
 
         if (! $grupo) {
             return redirect()->route('agendafacil.confirmar-dados')
@@ -313,7 +339,7 @@ class AcessoController extends Controller
             'destino_tipo' => Agendamento::DESTINO_GRUPO,
         ]);
 
-        return redirect()->route('agendafacil.codigo');
+        return redirect()->route('grupos.selecionar');
     }
 
     /**
@@ -379,11 +405,11 @@ class AcessoController extends Controller
     }
 
     /**
-     * Etapa 3 — Confirmação pelo próprio Telegram (Login Widget).
+    * Etapa 2 — Confirmação pelo próprio Telegram (Login Widget).
      * O código de 6 dígitos no grupo segue disponível no backend como
      * fallback desativado (validar/reenviar), sem envio automático.
      */
-    public function codigo(Request $request)
+    public function codigo(Request $request, TelegramMtprotoService $telegramMtproto)
     {
         $usuario = $this->visitanteAtual($request);
 
@@ -405,6 +431,7 @@ class AcessoController extends Controller
             'usandoEnv' => $bot['usandoEnv'],
             'dominio' => $bot['dominio'],
             'confirmarUrl' => route('telegram.confirmar-callback'),
+            'mtprotoConfigurado' => $telegramMtproto->configurado(),
         ]);
     }
 

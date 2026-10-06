@@ -10,6 +10,7 @@ use App\Support\PapelHierarquia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
@@ -251,14 +252,15 @@ class AdminController extends Controller
             ->orderBy('ordem')
             ->orderBy('nome')
             ->paginate(15);
-
-        $cadastrados = GrupoTelegram::query()->pluck('chat_id')->map(fn ($id) => (string) $id)->all();
+        $usuarios = User::whereIn('role', PapelHierarquia::VISITANTES)
+            ->orderBy('name')
+            ->get(['id', 'name', 'telegram_id', 'telegram_username']);
 
         return view('admin.grupos', [
             'grupos' => $grupos,
+            'usuarios' => $usuarios,
             'telegramConfigurado' => $telegram->configurado(),
             'gruposApi' => $telegram->configurado() ? $telegram->listarGrupos() : [],
-            'chatIdsCadastrados' => $cadastrados,
         ]);
     }
 
@@ -267,7 +269,7 @@ class AdminController extends Controller
         $dados = $request->validate($this->regrasGrupo());
 
         GrupoTelegram::updateOrCreate(
-            ['chat_id' => $dados['chat_id'], 'usuario_id' => $request->user()->id],
+            ['chat_id' => $dados['chat_id'], 'usuario_id' => $dados['usuario_id']],
             $this->atributosGrupo($dados, ['ativo' => true, 'ordem' => $dados['ordem'] ?? 0])
         );
 
@@ -302,10 +304,14 @@ class AdminController extends Controller
             'chat_id' => ['required', 'string', 'max:60'],
             'nome' => ['required', 'string', 'max:150'],
             'tipo' => ['required', 'in:group,supergroup,channel'],
+            'usuario_id' => [
+                'required',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', PapelHierarquia::VISITANTES)),
+            ],
         ]);
 
         GrupoTelegram::updateOrCreate(
-            ['chat_id' => $dados['chat_id'], 'usuario_id' => $request->user()->id],
+            ['chat_id' => $dados['chat_id'], 'usuario_id' => $dados['usuario_id']],
             ['nome' => $dados['nome'], 'tipo' => $dados['tipo'], 'modo' => GrupoTelegram::MODO_ABERTO, 'ativo' => true]
         );
 
@@ -354,6 +360,10 @@ class AdminController extends Controller
         return [
             'nome' => ['required', 'string', 'max:150'],
             'chat_id' => ['required', 'string', 'max:60'],
+            'usuario_id' => [
+                'required',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', PapelHierarquia::VISITANTES)),
+            ],
             'tipo' => ['required', 'in:group,supergroup,channel'],
             'modo' => ['required', 'in:aberto,fechado'],
             'horario_abertura' => ['nullable', 'date_format:H:i'],
@@ -368,6 +378,7 @@ class AdminController extends Controller
     {
         return array_merge([
             'nome' => $dados['nome'],
+            'usuario_id' => $dados['usuario_id'],
             'tipo' => $dados['tipo'],
             'modo' => $dados['modo'] ?? GrupoTelegram::MODO_ABERTO,
             'horario_abertura' => $dados['horario_abertura'] ?? null,

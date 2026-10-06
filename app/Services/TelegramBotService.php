@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\GrupoTelegram;
 use App\Models\TelegramBot;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -208,5 +210,70 @@ class TelegramBotService
 
             return [];
         }
+    }
+
+    /**
+     * Filtra os chats conhecidos pelo bot para os quais o usuário é membro.
+     * O Bot API não enumera grupos pessoais; o bot precisa ser administrador
+     * para verificar a participação de outros usuários com getChatMember.
+     *
+     * @return array<int, array{chat_id: string, nome: string, tipo: string}>
+     */
+    public function listarGruposDoUsuario(string $telegramUserId): array
+    {
+        if (! $this->configurado() || $telegramUserId === '') {
+            return [];
+        }
+
+        $candidatos = collect($this->listarGrupos())
+            ->concat(GrupoTelegram::ativos()->get(['nome', 'chat_id', 'tipo'])->map(fn (GrupoTelegram $grupo) => [
+                'chat_id' => (string) $grupo->chat_id,
+                'nome' => $grupo->nome,
+                'tipo' => $grupo->tipo,
+            ]))
+            ->unique('chat_id')
+            ->take(100)
+            ->values();
+
+        $respostas = Http::pool(function (Pool $pool) use ($candidatos, $telegramUserId) {
+            return $candidatos->mapWithKeys(fn (array $grupo, int $indice) => [
+                (string) $indice => $pool->as((string) $indice)
+                    ->timeout(8)
+                    ->get("{$this->apiBase}/getChatMember", [
+                        'chat_id' => $grupo['chat_id'],
+                        'user_id' => $telegramUserId,
+                    ]),
+            ])->all();
+        }, 10);
+
+        $gruposDoUsuario = [];
+
+        foreach ($candidatos as $indice => $grupo) {
+            $response = $respostas[(string) $indice] ?? null;
+
+            if ($response instanceof \Throwable) {
+                Log::warning('Falha ao verificar membro do grupo Telegram', [
+                    'chat_id' => $grupo['chat_id'],
+                    'erro' => $response->getMessage(),
+                ]);
+
+                continue;
+            }
+
+            if (! $response || ! $response->successful() || ! $response->json('ok')) {
+                continue;
+            }
+
+            $membro = $response->json('result');
+            $status = $membro['status'] ?? '';
+            $estaNoGrupo = in_array($status, ['creator', 'administrator', 'member'], true)
+                || ($status === 'restricted' && (bool) ($membro['is_member'] ?? false));
+
+            if ($estaNoGrupo) {
+                $gruposDoUsuario[] = $grupo;
+            }
+        }
+
+        return $gruposDoUsuario;
     }
 }
