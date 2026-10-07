@@ -9,6 +9,10 @@
     <h1 class="text-2xl font-bold text-slate-800 mb-1">Confirme que é você</h1>
     <p class="text-slate-500 text-sm md:text-base mb-6">Enviamos um código para o Telegram do número <strong>{{ $telefone }}</strong>.</p>
 
+    <div class="mt-4 text-center">
+        <a href="{{ route('agendafacil.acesso') }}" class="text-sm text-blue-700 hover:text-blue-900 font-medium transition-colors">← Voltar</a>
+    </div>
+
     @if ($erroEnvio)
         <div class="bg-red-50 text-red-600 text-xs rounded-lg px-4 py-3 mb-4">{{ $erroEnvio }}</div>
     @elseif (session('sucesso'))

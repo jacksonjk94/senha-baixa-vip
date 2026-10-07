@@ -37,7 +37,7 @@
                        inputmode="tel" placeholder="(11) 90000-0000"
                        value="{{ old('telefone') }}" autofocus>
             </div>
-            <p class="text-xs text-slate-500 mt-1">Digite o DDD e o número — o +55 já está fixo.</p>
+            <p class="text-xs text-slate-500 mt-1" id="telefoneAjuda">Digite o DDD e o número — o +55 já está fixo.</p>
             @error('telefone')
                 <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
             @enderror
@@ -71,6 +71,24 @@
 
         botoes.forEach(function (b) { b.addEventListener('click', function () { aplicar(b.dataset.modo); }); });
         aplicar(modoInput.value || 'novo');
+
+        var ajuda = document.getElementById('telefoneAjuda');
+        if (telefone) {
+            telefone.addEventListener('input', function () {
+                var d = telefone.value.replace(/\D/g, '').slice(0, 11);
+                var m = d;
+                if (d.length > 2) m = '(' + d.slice(0, 2) + ') ' + d.slice(2);
+                if (d.length > 7) m = '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+                telefone.value = m;
+                if (d.length > 0 && d.length < 10) {
+                    ajuda.textContent = 'Telefone incompleto — use DDD + número (10 ou 11 dígitos).';
+                    ajuda.className = 'text-xs text-amber-600 mt-1';
+                } else {
+                    ajuda.textContent = 'Digite o DDD e o número — o +55 já está fixo.';
+                    ajuda.className = 'text-xs text-slate-500 mt-1';
+                }
+            });
+        }
     })();
 </script>
 @endsection

@@ -1,7 +1,17 @@
 @php
     $etapas = ['Telefone', 'Código', 'Horário', 'Grupo', 'Confirmar', 'Concluído'];
+    $progresso = (int) round((($etapaAtual - 1) / (count($etapas) - 1)) * 100);
 @endphp
-<div class="flex items-start justify-between w-full mb-8 px-1 md:px-2 gap-0.5">
+<div class="w-full mb-4">
+    <div class="flex justify-between text-[11px] md:text-xs text-slate-500 mb-1">
+        <span>Etapa {{ $etapaAtual }} de {{ count($etapas) }}</span>
+        <span>{{ $progresso }}%</span>
+    </div>
+    <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div class="h-full bg-gradient-to-r from-blue-900 to-blue-700 rounded-full transition-all duration-500" style="width: {{ $progresso }}%"></div>
+    </div>
+</div>
+<div class="flex items-start justify-between w-full mb-8 px-1 md:px-2 gap-0.5" role="list" aria-label="Progresso do agendamento">
     @foreach ($etapas as $i => $nome)
         @php $n = $i + 1; @endphp
         @if ($n < $etapaAtual || ($n === $etapaAtual && $nome === 'Concluído'))
@@ -15,7 +25,7 @@
                 <div class="flex-1 h-0.5 bg-emerald-200 mx-0.5 md:mx-3 self-start mt-[15px] md:mt-[19px]"></div>
             @endif
         @elseif ($n === $etapaAtual)
-            <div class="flex flex-col items-center flex-1 min-w-0">
+            <div class="flex flex-col items-center flex-1 min-w-0" role="listitem" aria-current="step">
                 <div class="h-8 md:h-10 flex items-center justify-center">
                     <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-900 text-white flex items-center justify-center text-sm md:text-base font-bold shadow-md ring-2 md:ring-4 ring-blue-100 af-step-atual">{{ $n }}</div>
                 </div>

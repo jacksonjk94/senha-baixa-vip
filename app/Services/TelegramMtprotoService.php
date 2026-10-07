@@ -57,10 +57,16 @@ class TelegramMtprotoService
                 return $dados + ['falha' => true];
             }
 
+            \Illuminate\Support\Facades\Log::warning('MTProto retornou erro', [
+                'path' => $path,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
             throw ValidationException::withMessages([
                 'telegram' => is_array($dados) && filled($dados['message'] ?? null)
                     ? (string) $dados['message']
-                    : 'Não foi possível autenticar no Telegram. Tente novamente.',
+                    : 'Não foi possível autenticar no Telegram (HTTP ' . $response->status() . '). Tente novamente.',
             ]);
         }
 

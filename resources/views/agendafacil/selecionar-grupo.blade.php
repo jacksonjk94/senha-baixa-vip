@@ -25,6 +25,9 @@
         @error('chat_id')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
         <button type="submit" class="w-full py-3 rounded-lg bg-gradient-to-r from-blue-900 to-blue-700 hover:from-blue-800 hover:to-blue-600 text-white font-semibold transition-all duration-200 mt-6 shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">Confirmar grupo</button>
     </form>
+    <div class="mt-4 text-center">
+        <a href="{{ route('agendafacil.horario') }}" class="text-sm text-blue-700 hover:text-blue-900 font-medium transition-colors">← Voltar</a>
+    </div>
 </div>
 
 <style>

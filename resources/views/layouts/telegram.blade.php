@@ -26,6 +26,7 @@
         .btn-telegram:active { transform: translateY(0) scale(.98); filter: brightness(.96); box-shadow: 0 2px 6px rgba(30,58,138,.3); }
         .btn-telegram:focus-visible { outline: 3px solid rgba(30,58,138,.45); outline-offset: 2px; }
         .af-processando { opacity: .75; cursor: not-allowed !important; pointer-events: none; }
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #1D4ED8; outline-offset: 2px; border-radius: 4px; }
         .card-telegram { border: 1px solid #F1F5F9; border-radius: 16px; box-shadow: 0 4px 20px rgba(30,58,138,.06); overflow: hidden; background: #fff; }
         .card-header-telegram { background: linear-gradient(90deg, #1E3A8A, #1D4ED8); color: #fff; padding: 12px 20px; font-weight: 700; }
         .tg-steps { display: flex; gap: 6px; margin: 16px 0; flex-wrap: wrap; }

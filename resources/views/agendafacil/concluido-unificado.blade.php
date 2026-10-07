@@ -13,8 +13,15 @@
         <button type="submit" class="text-sm text-blue-700 hover:text-blue-900 font-medium transition-colors">Sair (encerrar esta sessão)</button>
     </form>
     @if ($agendamento?->data_hora_envio)
-        <div class="border border-slate-200 rounded-lg p-4 mt-4 bg-blue-50">
-            <p class="mb-0 text-sm text-slate-800">Agendado com sucesso! ✅ Sua mensagem será enviada no grupo <strong>{{ $agendamento->destino_nome }}</strong> no dia <strong>{{ $agendamento->data_hora_envio->format('d/m/Y \à\s H:i') }}</strong>. Posição: <strong>{{ $agendamento->posicaoTexto() }}</strong>.</p>
+        <div class="border border-emerald-200 rounded-lg p-4 mt-4 bg-emerald-50 text-center">
+            <div class="w-14 h-14 mx-auto rounded-full bg-emerald-600 text-white flex items-center justify-center text-2xl" style="animation: af-step-pop .4s ease-out">✓</div>
+            <p class="mt-3 mb-0 text-sm text-slate-800">Agendado com sucesso! ✅ Sua mensagem será enviada no grupo <strong>{{ $agendamento->destino_nome }}</strong> no dia <strong>{{ $agendamento->data_hora_envio->format('d/m/Y \à\s H:i') }}</strong>. Posição: <strong>{{ $agendamento->posicaoTexto() }}</strong>.</p>
+            @php
+                $inicio = $agendamento->data_hora_envio->format('Ymd\THis');
+                $fim = $agendamento->data_hora_envio->copy()->addMinutes(30)->format('Ymd\THis');
+                $gcal = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' . urlencode('Envio no grupo ' . $agendamento->destino_nome) . '&dates=' . $inicio . '/' . $fim . '&details=' . urlencode('Posição: ' . $agendamento->posicaoTexto());
+            @endphp
+            <a href="{{ $gcal }}" target="_blank" rel="noopener" class="inline-block mt-4 px-4 py-2 rounded-lg border border-blue-200 text-blue-900 text-sm font-medium hover:bg-blue-50 transition-all duration-200">📅 Adicionar ao calendário</a>
         </div>
     @endif
 </div>

@@ -9,6 +9,20 @@
     <h1 class="text-2xl font-bold text-slate-800 mb-6">Confira os dados</h1>
 
     <div class="border border-slate-200 rounded-lg p-4 mb-4 bg-slate-50">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold">{{ \Illuminate\Support\Str::substr($telegramUser['firstName'] ?? 'V', 0, 1) }}</div>
+                <div>
+                    <p class="font-bold text-slate-800 text-sm leading-tight">{{ $telegramUser['firstName'] ?? 'Visitante' }}</p>
+                    <p class="text-slate-500 text-xs">{{ ! empty($telegramUser['username']) ? '@' . $telegramUser['username'] : 'Conta Telegram' }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">{{ \Illuminate\Support\Str::substr($grupo['nome'], 0, 1) }}</div>
+                <div>
+                    <p class="font-bold text-slate-800 text-sm leading-tight">{{ $grupo['nome'] }}</p>
+                    <p class="text-slate-500 text-xs">{{ $grupo['tipo'] === 'supergroup' ? 'Supergrupo' : 'Grupo' }}</p>
+                </div>
+            </div>
             <p class="text-slate-500 text-xs mb-0">Telefone</p>
             <p class="font-bold mb-2 text-slate-800 text-sm">{{ $telefone }}</p>
 
@@ -19,7 +33,11 @@
             <p class="font-bold mb-2 text-slate-800 text-sm">{{ $grupo['nome'] }} <small class="text-slate-500">({{ $grupo['tipo'] === 'supergroup' ? 'Supergrupo' : 'Grupo' }})</small></p>
 
             <p class="text-slate-500 text-xs mb-0">Data e horário</p>
-            <p class="font-bold mb-0 text-slate-800 text-sm">{{ \Carbon\Carbon::parse($rascunho['data_envio'] . ' ' . $rascunho['hora_envio'])->format('d/m/Y \à\s H:i') }}</p>
+            @php
+                $envioEm = \Carbon\Carbon::parse($rascunho['data_envio'] . ' ' . $rascunho['hora_envio'], 'America/Sao_Paulo');
+            @endphp
+            <p class="font-bold mb-0 text-slate-800 text-sm">{{ $envioEm->format('d/m/Y \à\s H:i') }} <span class="text-slate-500 font-normal">(horário de Brasília)</span></p>
+            <p class="text-xs text-blue-700 mt-1">{{ $envioEm->isFuture() ? 'Envio ' . \Carbon\Carbon::now('America/Sao_Paulo')->diffForHumans($envioEm, ['parts' => 2, 'short' => true]) : 'Data/horário já passou' }}</p>
         </div>
 
         <form method="POST" action="{{ route('agendafacil.resumo.confirmar') }}">
@@ -44,6 +62,9 @@
 
             <button type="submit" class="w-full py-3 rounded-lg bg-gradient-to-r from-blue-900 to-blue-700 hover:from-blue-800 hover:to-blue-600 text-white font-semibold transition-all duration-200 shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">Confirmar agendamento</button>
         </form>
+    <div class="mt-4 text-center">
+        <a href="{{ route('grupos.selecionar') }}" class="text-sm text-blue-700 hover:text-blue-900 font-medium transition-colors">← Voltar</a>
+    </div>
 </div>
 
 <script>

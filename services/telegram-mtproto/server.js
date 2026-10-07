@@ -87,6 +87,18 @@ async function readJson(request) {
     }
 }
 
+function formatarDuracao(totalSegundos) {
+    const s = Math.max(0, Math.floor(totalSegundos));
+    const horas = Math.floor(s / 3600);
+    const minutos = Math.floor((s % 3600) / 60);
+    const segundos = s % 60;
+    const partes = [];
+    if (horas > 0) partes.push(`${horas} ${horas === 1 ? 'hora' : 'horas'}`);
+    if (minutos > 0) partes.push(`${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`);
+    if (segundos > 0 || partes.length === 0) partes.push(`${segundos} ${segundos === 1 ? 'segundo' : 'segundos'}`);
+    return partes.join(', ');
+}
+
 function errorResponse(error) {
     switch (error?.errorMessage) {
         case 'PHONE_NUMBER_INVALID':
@@ -102,11 +114,13 @@ function errorResponse(error) {
             return [410, 'O código expirou. Solicite outro código.'];
         case 'PASSWORD_HASH_INVALID':
             return [422, 'Senha de verificação em duas etapas incorreta.'];
-        case 'FLOOD_WAIT':
-        case 'FLOOD_PREMIUM_WAIT':
-            return [429, 'O Telegram pediu uma pausa antes de tentar novamente.'];
         default:
-            return [502, 'Não foi possível concluir a autenticação no Telegram. Tente novamente.'];
+            if (typeof error?.errorMessage === 'string' && (error.errorMessage.startsWith('FLOOD_WAIT') || error.errorMessage.startsWith('FLOOD_PREMIUM_WAIT'))) {
+                const segundos = Number(error.errorMessage.match(/\d+/)?.[0] ?? 0);
+                return [429, segundos > 0 ? `Muitas tentativas. O Telegram pediu para aguardar ${formatarDuracao(segundos)} antes de tentar novamente.` : 'O Telegram pediu uma pausa antes de tentar novamente.'];
+            }
+            console.error('[mtproto] Erro não mapeado:', error?.errorMessage ?? error?.message ?? error);
+            return [502, `Não foi possível concluir a autenticação no Telegram. Tente novamente. (${error?.errorMessage ?? error?.message ?? 'erro desconhecido'})`];
     }
 }
 
