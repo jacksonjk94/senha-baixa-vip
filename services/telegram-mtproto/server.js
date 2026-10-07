@@ -91,6 +91,8 @@ function errorResponse(error) {
     switch (error?.errorMessage) {
         case 'PHONE_NUMBER_INVALID':
             return [422, 'Número de telefone inválido. Use o formato internacional.'];
+        case 'API_ID_INVALID':
+            return [422, 'Credenciais da API do Telegram inválidas. Confira TELEGRAM_API_ID e TELEGRAM_API_HASH.'];
         case 'PHONE_NUMBER_BANNED':
             return [422, 'O Telegram não permite iniciar sessão com este número.'];
         case 'PHONE_CODE_INVALID':

@@ -2,64 +2,92 @@
 @section('titulo', 'Código Telegram')
 
 @section('conteudo')
-<div class="tg-steps">
-    <div class="tg-step done">1. Acesso ✓</div>
-    <div class="tg-step active">2. Código</div>
-    <div class="tg-step">3. Confirmar os Dados</div>
-    <div class="tg-step">4. Grupos do Telegram</div>
-    <div class="tg-step">5. Concluído</div>
-</div>
+@include('agendafacil.partials.timeline', ['etapaAtual' => 2])
 
-<div class="card card-telegram">
-    <div class="card-body p-4">
-        <p class="text-uppercase fw-bold small mb-1" style="color:#0B6B4F;letter-spacing:.04em">Login Telegram</p>
-        <h1 class="h4 mb-1">Confirme que é você</h1>
-        <p class="text-muted">Confirme sua identidade com a conta Telegram vinculada ao cadastro.</p>
-        @if ($mtprotoConfigurado)
-            <div class="alert alert-info small">Depois desta confirmação, você poderá autorizar a consulta dos grupos da sua conta em uma etapa separada. Essa autorização não será usada para enviar mensagens.</div>
-        @endif
+<div class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm border border-slate-100 px-6 md:px-8 py-8">
+    <p class="text-xs font-bold tracking-wider uppercase text-blue-700 mb-1">Login Telegram</p>
+    <h1 class="text-2xl font-bold text-slate-800 mb-1">Confirme que é você</h1>
+    <p class="text-slate-500 text-sm md:text-base mb-6">Enviamos um código para o Telegram do número <strong>{{ $telefone }}</strong>.</p>
 
-        @error('telegram')
-            <div class="alert alert-danger">{{ $message }}</div>
-        @enderror
+    @if ($erroEnvio)
+        <div class="bg-red-50 text-red-600 text-xs rounded-lg px-4 py-3 mb-4">{{ $erroEnvio }}</div>
+    @elseif (session('sucesso'))
+        <div class="bg-emerald-50 text-emerald-700 text-xs rounded-lg px-4 py-3 mb-4">{{ session('sucesso') }}</div>
+    @endif
 
-        @if ($temBot)
-            <div class="d-flex justify-content-center my-3">
-                <script async src="https://telegram.org/js/telegram-widget.js?22"
-                        data-telegram-login="{{ $botUsername }}"
-                        data-size="large"
-                        data-auth-url="{{ $confirmarUrl }}"></script>
+    @error('telegram')
+        <div class="bg-red-50 text-red-600 text-xs rounded-lg px-4 py-3 mb-4">{{ $message }}</div>
+    @enderror
+
+    @if (session('telegram_2fa_required'))
+        <div class="bg-amber-50 text-amber-700 text-xs rounded-lg px-4 py-3 mb-4">Esta conta exige a senha de verificação em duas etapas (2FA).</div>
+    @endif
+
+    @if ($needsPassword)
+        <form method="POST" action="{{ route('agendafacil.codigo.verificar') }}">
+            @csrf
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="senha_2fa">Senha 2FA</label>
+            <input id="senha_2fa" name="senha_2fa" type="password" class="w-full px-4 py-3 border border-slate-200 rounded-lg outline-none text-slate-800 text-sm focus:border-blue-700 focus:ring-1 focus:ring-blue-700 transition-all duration-200" required autofocus>
+            @error('senha_2fa')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
+            <button type="submit" class="w-full py-3 rounded-lg bg-gradient-to-r from-blue-900 to-blue-700 hover:from-blue-800 hover:to-blue-600 text-white font-semibold transition-all duration-200 mt-6 shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">Verificar</button>
+        </form>
+    @else
+        <form method="POST" action="{{ route('agendafacil.codigo.verificar') }}">
+            @csrf
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="codigo">Código do Telegram</label>
+            <div class="relative">
+                <input id="codigo" name="codigo" class="w-full px-4 py-3 pr-24 border border-slate-200 rounded-lg outline-none text-slate-800 text-sm focus:border-blue-700 focus:ring-1 focus:ring-blue-700 transition-all duration-200" inputmode="numeric" maxlength="8" placeholder="00000" required autofocus>
+                <button type="button" id="btnColar" title="Colar" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-blue-900 text-xs font-semibold hover:bg-blue-50 transition-all duration-200">📋 Colar</button>
             </div>
-            @if ($usandoEnv)
-                <div class="alert alert-warning small">Bot via configuração do ambiente. Se o botão acima não aparecer, libere o domínio <code>{{ $dominio ?? 'do site' }}</code> no <strong>@BotFather</strong> com o comando <code>/setdomain</code>.</div>
-            @endif
-            <p id="tgConfirmHint" class="text-muted small text-center mb-0">Toque no botão acima e confirme no seu Telegram.</p>
-            <p id="tgConfirmStatus" class="text-center small mt-2 mb-0" hidden>
-                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                Aguardando confirmação no Telegram… conclua na outra janela.
-            </p>
-        @else
-            <div class="alert alert-warning mb-0">Confirmação pelo Telegram indisponível no momento (nenhum bot configurado). Fale com o responsável.</div>
-        @endif
-    </div>
+            @error('codigo')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
+            <button type="submit" class="w-full py-3 rounded-lg bg-gradient-to-r from-blue-900 to-blue-700 hover:from-blue-800 hover:to-blue-600 text-white font-semibold transition-all duration-200 mt-6 shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">Verificar</button>
+        </form>
+
+        <form method="POST" action="{{ route('agendafacil.codigo.reenviar') }}" class="mt-4 text-center" id="formReenviar">
+            @csrf
+            <button type="submit" class="text-sm text-blue-700 hover:text-blue-900 font-medium transition-colors disabled:text-slate-400" id="btnReenviar" disabled>Reenviar código</button>
+            <span class="text-slate-400 text-xs" id="timerReenviar"></span>
+        </form>
+    @endif
 </div>
 
-@if ($temBot)
+@if (! $needsPassword)
 <script>
-    // O widget abre a confirmação em outra janela: mostra spinner enquanto
-    // o visitante confirma lá; se ele voltar sem concluir, esconde de novo.
     (function () {
-        var status = document.getElementById('tgConfirmStatus');
-        var hint = document.getElementById('tgConfirmHint');
-        if (!status) return;
-        window.addEventListener('blur', function () {
-            status.hidden = false;
-            if (hint) hint.hidden = true;
-        });
-        window.addEventListener('focus', function () {
-            status.hidden = true;
-            if (hint) hint.hidden = false;
-        });
+        var btn = document.getElementById('btnReenviar');
+        var timer = document.getElementById('timerReenviar');
+        var enviadoEm = {{ (int) $enviadoEm }} * 1000;
+        var cooldown = 60000;
+
+        function tick() {
+            var restante = cooldown - (Date.now() - enviadoEm);
+            if (restante <= 0) {
+                btn.disabled = false;
+                timer.textContent = '';
+                clearInterval(iv);
+            } else {
+                btn.disabled = true;
+                timer.textContent = '(' + Math.ceil(restante / 1000) + 's)';
+            }
+        }
+
+        var iv = setInterval(tick, 1000);
+        tick();
+
+        var btnColar = document.getElementById('btnColar');
+        if (btnColar) {
+            btnColar.addEventListener('click', async function () {
+                var campo = document.getElementById('codigo');
+                try {
+                    var texto = await navigator.clipboard.readText();
+                    campo.value = String(texto || '').replace(/\D/g, '').slice(0, 8);
+                    campo.focus();
+                } catch (e) {
+                    campo.focus();
+                    document.execCommand('paste');
+                }
+            });
+        }
     })();
 </script>
 @endif

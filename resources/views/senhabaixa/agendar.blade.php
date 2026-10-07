@@ -36,7 +36,7 @@
             @error('hora_envio')<div class="text-danger small">{{ $message }}</div>@enderror
 
             <label class="form-label fw-semibold mt-3" for="texto">Texto que vai aparecer no grupo *</label>
-            <textarea name="texto" id="texto" class="input-telegram" rows="3" maxlength="500" placeholder="Ex.: Roberta lallison x8" required>{{ old('texto') }}</textarea>
+            <textarea name="texto" id="texto" class="input-telegram" rows="3" maxlength="500" placeholder="Ex.: Maria Silva" required>{{ old('texto') }}</textarea>
             @error('texto')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
 
             <button type="submit" class="btn-telegram mt-3">Agendar ✈</button>

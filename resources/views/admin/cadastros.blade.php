@@ -17,21 +17,7 @@
 <table class="table mb-0">
     <thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Telegram</th><th>Ativo</th><th class="text-end">Ações</th></tr></thead>
     <tbody>
-    @forelse ($usuarios as $u)
-        <tr>
-            <td data-label="Nome">{{ $u->name }}</td>
-            <td data-label="E-mail">{{ $u->email }}</td>
-            <td data-label="Telefone">{{ $u->telefone ?? '—' }}@if ($u->ultimos_digitos_telefone)<br><small class="text-muted">4 dígitos: {{ $u->ultimos_digitos_telefone }}</small>@endif</td>
-            <td data-label="Telegram">{{ $u->telegram_username ?? '—' }}</td>
-            <td data-label="Ativo">{{ $u->active ? '✅' : '⏸' }}</td>
-            <td class="text-end text-nowrap af-cell-actions">
-                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditarVisitante{{ $u->id }}">Editar</button>
-                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalExcluirVisitante{{ $u->id }}">Excluir</button>
-            </td>
-        </tr>
-    @empty
-        <tr><td colspan="6" class="text-center text-muted">Nenhum visitante cadastrado.</td></tr>
-    @endforelse
+    @include('admin.partials.cadastros_rows', ['usuarios' => $usuarios])
     </tbody>
 </table>
 </div></div></div>
@@ -46,7 +32,7 @@
             <div class="modal-body d-grid gap-3">
                 <div><label class="form-label fw-semibold">Nome *</label><input name="name" class="form-control" maxlength="120" required></div>
                 <div><label class="form-label fw-semibold">E-mail *</label><input name="email" type="email" class="form-control" maxlength="190" required></div>
-                <div><label class="form-label fw-semibold">Telefone *</label><div class="input-group"><span class="input-group-text">+55</span><input name="telefone" class="form-control" maxlength="30" placeholder="(13) 98138-8690" required></div><small class="text-muted">Os 4 últimos dígitos são calculados automaticamente.</small></div>
+                <div><label class="form-label fw-semibold">Telefone *</label><div class="input-group"><span class="input-group-text">+55</span><input name="telefone" class="form-control" maxlength="30" placeholder="(11) 90000-0000" required></div><small class="text-muted">Os 4 últimos dígitos são calculados automaticamente.</small></div>
                 <div><label class="form-label fw-semibold">Telegram (usuário)</label><input name="telegram_username" class="form-control" maxlength="60" placeholder="usuario_telegram"></div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary">Cadastrar</button></div>
@@ -84,4 +70,24 @@
     </div></div>
 </div>
 @endforeach
+
+<script>
+    (function () {
+        function ids(doc) {
+            return Array.from(doc.querySelectorAll('tbody [data-row-id]')).map(function (r) { return r.dataset.rowId; }).join(',');
+        }
+        async function refresh() {
+            try {
+                var r = await fetch(window.location.pathname + window.location.search, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (!r.ok) return;
+                var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+                if (ids(doc) !== ids(document)) { location.reload(); return; }
+                var novo = doc.querySelector('tbody');
+                var atual = document.querySelector('tbody');
+                if (novo && atual) atual.innerHTML = novo.innerHTML;
+            } catch (e) { /* ignora */ }
+        }
+        setInterval(refresh, 5000);
+    })();
+</script>
 @endsection

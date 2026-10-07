@@ -8,11 +8,13 @@ use App\Models\User;
 use App\Services\TelegramMtprotoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AcessoController extends Controller
 {
     /**
-     * Etapa 1 — Tela inicial: últimos 4 dígitos do telefone.
+     * Etapa 1 — Telefone: quem já agendou informa os 4 últimos dígitos;
+     * quem é novo informa o telefone completo (+55 fixo, só DDD + número).
      */
     public function acesso()
     {
@@ -20,104 +22,442 @@ class AcessoController extends Controller
     }
 
     /**
-     * Valida os 4 dígitos contra o cadastro e inicia a sessão do fluxo.
+     * Valida a identificação e inicia a sessão do fluxo.
      */
     public function validarAcesso(Request $request)
     {
+        $modo = $request->input('modo', 'novo');
+        $request->session()->forget('agendafacil');
+
+        if ($modo === 'retorno') {
+            $dados = $request->validate([
+                'digitos' => ['required', 'digits:4'],
+            ], [
+                'digitos.required' => 'Informe os 4 últimos dígitos do telefone.',
+                'digitos.digits' => 'Digite exatamente 4 números.',
+            ]);
+
+            $digitos = $dados['digitos'];
+            $usuario = User::where('ultimos_digitos_telefone', $digitos)
+                ->orWhere('telefone', 'like', '%' . $digitos)
+                ->first();
+
+            if (! $usuario) {
+                return back()
+                    ->withErrors(['digitos' => 'Dígitos não encontrados. Verifique e tente novamente, ou informe o telefone completo em "Primeiro agendamento".'])
+                    ->withInput(['modo' => 'retorno']);
+            }
+
+            $telefone = $this->normalizarTelefone((string) $usuario->telefone);
+
+            if (! preg_match('/^\+[1-9]\d{7,14}$/', $telefone)) {
+                // Cadastro sem telefone válido: volta para o telefone completo.
+                return back()
+                    ->withErrors(['digitos' => 'Não encontramos um telefone válido neste cadastro. Informe o telefone completo.'])
+                    ->withInput(['modo' => 'novo', 'telefone' => '']);
+            }
+
+            $request->session()->put('agendafacil.visitante_id', $usuario->id);
+            $request->session()->put('agendafacil.telefone', $telefone);
+            $request->session()->put('agendafacil.acesso_em', time());
+
+            return redirect()->route('agendafacil.codigo');
+        }
+
         $dados = $request->validate([
-            'digitos' => ['required', 'digits:4'],
+            'telefone' => ['required', 'string', 'regex:/^[0-9()\s+.-]{8,20}$/'],
         ], [
-            'digitos.required' => 'Informe os 4 últimos dígitos do telefone.',
-            'digitos.digits' => 'Digite exatamente 4 números.',
+            'telefone.regex' => 'Informe apenas o DDD e o número.',
         ]);
 
-        $digitos = $dados['digitos'];
+        $telefone = $this->normalizarTelefone($dados['telefone']);
 
-        // Busca pelo campo dedicado OU pelo sufixo do telefone.
-        // O fallback cobre cadastros onde só o telefone foi preenchido
-        // (ex.: "+55 41 98843-2148") e o campo ultimos_digitos_telefone está nulo.
-        $usuario = User::where('ultimos_digitos_telefone', $digitos)
-            ->orWhere('telefone', 'like', '%' . $digitos)
-            ->first();
-
-        if (! $usuario) {
+        if (! preg_match('/^\+[1-9]\d{7,14}$/', $telefone)) {
             return back()
-                ->withErrors(['digitos' => 'Dígitos não encontrados. Verifique e tente novamente.'])
+                ->withErrors(['telefone' => 'Informe DDD + número válido.'])
                 ->withInput();
         }
 
-        // Uma nova identificação não pode herdar autenticação ou agendamento
-        // de outro visitante que tenha usado a mesma sessão do navegador.
-        $request->session()->forget('agendafacil');
-        // Guarda o visitante identificado na sessão do fluxo (sem logar no sistema).
-        $request->session()->put('agendafacil.visitante_id', $usuario->id);
-        $request->session()->put('agendafacil.digitos_ok', true);
+        $usuario = User::where('telefone', $telefone)
+            ->orWhere('telefone', 'like', '%' . substr(preg_replace('/\D/', '', $telefone), -8))
+            ->first();
+
+        if ($usuario) {
+            $request->session()->put('agendafacil.visitante_id', $usuario->id);
+        }
+
+        $request->session()->put('agendafacil.telefone', $telefone);
         $request->session()->put('agendafacil.acesso_em', time());
 
         return redirect()->route('agendafacil.codigo');
     }
 
     /**
-    * Etapa 3 — Confirmar os dados (conforme print 02.jpeg).
-     * Grupo selecionável, mensagem editável e horário do disparo
-     * definível; tipo de disparo e telefone são exibidos somente
-     * para conferência.
+     * Etapa 2 — Código: ao acessar, já dispara o envio do código do
+     * Telegram para o telefone informado; 2FA só quando exigido.
      */
-    public function confirmarDados(Request $request)
+    public function codigo(Request $request, TelegramMtprotoService $telegramMtproto)
     {
-        $usuario = $this->visitanteAtual($request);
+        $telefone = $request->session()->get('agendafacil.telefone');
 
-        if (! $usuario) {
+        if (! $telefone) {
             return redirect()->route('agendafacil.acesso');
         }
 
-        if (! $request->session()->get('agendafacil.telegram_ok')) {
-            return redirect()->route('agendafacil.codigo');
+        if ($request->session()->get('agendafacil.telegram_ok')) {
+            return redirect()->route('agendafacil.horario');
         }
 
-        $agendamento = $this->agendamentoAtual($request, $usuario);
-        $grupos = GrupoTelegram::where('usuario_id', $usuario->id)
-            ->ativos()
-            ->ordenados()
-            ->get();
-        $sugestao = $this->sugestaoEnvio();
-        $rascunho = $this->rascunhoLimpo($request);
+        $operationId = $request->session()->get('agendafacil.mtproto_operation_id');
+        $enviadoEm = (int) $request->session()->get('agendafacil.codigo_enviado_em', 0);
+        $expirado = $enviadoEm > 0 && (time() - $enviadoEm) > 600;
+        $erroEnvio = null;
 
-        return view('agendafacil.confirmar-dados', [
-            'usuario' => $usuario,
-            'agendamento' => $agendamento,
-            'grupos' => $grupos,
-            'mensagemInicial' => $this->mensagemSugerida($usuario, $agendamento),
-            'sugestaoData' => $sugestao->format('Y-m-d'),
-            'sugestaoHora' => $sugestao->format('H:i'),
-            // Data mínima selecionável (hoje): dias anteriores ficam
-            // indisponíveis no input date.
-            'dataMinima' => now()->format('Y-m-d'),
-            'rascunho' => $rascunho,
+        if (! $operationId || $expirado) {
+            try {
+                $resposta = $telegramMtproto->enviarCodigo($telefone);
+                $request->session()->put('agendafacil.mtproto_operation_id', $resposta['operationId'] ?? null);
+                $request->session()->put('agendafacil.codigo_enviado_em', time());
+                $request->session()->forget('agendafacil.needs_password');
+                $enviadoEm = time();
+            } catch (ValidationException $e) {
+                $erroEnvio = collect($e->errors())->flatten()->first();
+            }
+        }
+
+        $erroEnvio = $erroEnvio ?? session('erroEnvio');
+
+        return view('agendafacil.codigo', [
+            'telefone' => $telefone,
+            'needsPassword' => (bool) $request->session()->get('agendafacil.needs_password'),
+            'enviadoEm' => $enviadoEm,
+            'erroEnvio' => $erroEnvio,
         ]);
     }
 
     /**
-     * Rascunho da sessão com a mensagem sem o sufixo legado "xN"
-     * (ex.: "Jackson x1" → "Jackson"). Cura rascunhos gravados antes
-     * da remoção do parâmetro.
+     * Reenvio manual, respeitando 60s entre envios.
      */
-    protected function rascunhoLimpo(Request $request): ?array
+    public function reenviarCodigo(Request $request, TelegramMtprotoService $telegramMtproto)
     {
-        $rascunho = $request->session()->get('agendafacil.rascunho');
+        $telefone = $request->session()->get('agendafacil.telefone');
 
-        if (is_array($rascunho) && isset($rascunho['mensagem'])) {
-            $rascunho['mensagem'] = $this->semSufixoSenha((string) $rascunho['mensagem']);
+        if (! $telefone) {
+            return redirect()->route('agendafacil.acesso');
         }
 
-        return $rascunho;
+        $enviadoEm = (int) $request->session()->get('agendafacil.codigo_enviado_em', 0);
+
+        if (time() - $enviadoEm < 60) {
+            return redirect()->route('agendafacil.codigo')
+                ->with('aviso', 'Aguarde alguns segundos antes de reenviar.');
+        }
+
+        try {
+            $resposta = $telegramMtproto->enviarCodigo($telefone);
+            $request->session()->put('agendafacil.mtproto_operation_id', $resposta['operationId'] ?? null);
+            $request->session()->put('agendafacil.codigo_enviado_em', time());
+            $request->session()->forget('agendafacil.needs_password');
+
+            return redirect()->route('agendafacil.codigo')->with('sucesso', 'Novo código enviado pelo Telegram.');
+        } catch (ValidationException $e) {
+            return redirect()->route('agendafacil.codigo')
+                ->with('erroEnvio', collect($e->errors())->flatten()->first());
+        }
     }
 
     /**
-     * Sugestão inicial de envio: agora + 30min, arredondado para cima até
-     * a próxima dezena de minuto (ex.: 16:56 → 17:30). Minutagem inteira
-     * e sempre no futuro (atravessa a virada do dia).
+     * Verifica o código (e a senha 2FA, quando exigida).
      */
+    public function verificarCodigo(Request $request, TelegramMtprotoService $telegramMtproto)
+    {
+        $operationId = $request->session()->get('agendafacil.mtproto_operation_id');
+        $needsPassword = (bool) $request->session()->get('agendafacil.needs_password');
+
+        if (! $operationId) {
+            return redirect()->route('agendafacil.codigo')
+                ->withErrors(['telegram' => 'Solicite um novo código.']);
+        }
+
+        $dados = $request->validate($needsPassword ? [
+            'senha_2fa' => ['required', 'string', 'max:256'],
+        ] : [
+            'codigo' => ['required', 'string', 'regex:/^\d{4,8}$/'],
+        ], [
+            'codigo.regex' => 'Informe o código numérico recebido do Telegram.',
+        ]);
+
+        try {
+            $resultado = $telegramMtproto->verificarCodigo(
+                $operationId,
+                (string) ($dados['codigo'] ?? ''),
+                $needsPassword ? (string) ($dados['senha_2fa'] ?? '') : null
+            );
+        } catch (ValidationException $e) {
+            return back()->withErrors(['telegram' => collect($e->errors())->flatten()->first()]);
+        }
+
+        if (! empty($resultado['needsPassword'])) {
+            $request->session()->put('agendafacil.needs_password', true);
+
+            return redirect()->route('agendafacil.codigo')
+                ->with('telegram_2fa_required', true);
+        }
+
+        $request->session()->forget(['agendafacil.mtproto_operation_id', 'agendafacil.needs_password']);
+        $request->session()->put('agendafacil.telegram_ok', true);
+        $request->session()->put('agendafacil.acesso_em', time());
+        $request->session()->put('agendafacil.telegram_user', [
+            'id' => (string) ($resultado['user']['id'] ?? ''),
+            'username' => $resultado['user']['username'] ?? null,
+            'firstName' => $resultado['user']['firstName'] ?? null,
+        ]);
+        $request->session()->put('agendafacil.telegram_grupos', collect($resultado['groups'] ?? [])
+            ->filter(fn ($grupo) => is_array($grupo)
+                && in_array($grupo['tipo'] ?? null, ['group', 'supergroup'], true)
+                && filled($grupo['chat_id'] ?? null)
+                && filled($grupo['nome'] ?? null))
+            ->values()
+            ->all());
+
+        return redirect()->route('agendafacil.horario');
+    }
+
+    /**
+     * Etapa 3 — Horário: data e hora com as regras atuais (futuro).
+     */
+    public function horario(Request $request)
+    {
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
+            return redirect()->route('agendafacil.codigo');
+        }
+
+        $rascunho = $request->session()->get('agendafacil.rascunho');
+        $sugestao = $this->sugestaoEnvio();
+
+        return view('agendafacil.horario', [
+            'dataMinima' => now()->format('Y-m-d'),
+            'sugestaoData' => $sugestao->format('Y-m-d'),
+            'sugestaoHora' => $sugestao->format('H:i'),
+            'rascunho' => is_array($rascunho) ? $rascunho : [],
+        ]);
+    }
+
+    public function salvarHorario(Request $request)
+    {
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
+            return redirect()->route('agendafacil.codigo');
+        }
+
+        $dados = $request->validate([
+            'data_envio' => ['required', 'date'],
+            'hora_envio' => ['required', 'date_format:H:i'],
+        ], [
+            'data_envio.required' => 'Informe a data do envio.',
+            'hora_envio.required' => 'Informe o horário que será enviado.',
+        ]);
+
+        $dataHora = \Carbon\Carbon::parse($dados['data_envio'] . ' ' . $dados['hora_envio']);
+
+        if ($dataHora->isPast()) {
+            return back()->withErrors(['data_envio' => 'A data/hora do envio precisa estar no futuro.'])->withInput();
+        }
+
+        $rascunho = $request->session()->get('agendafacil.rascunho', []);
+        $request->session()->put('agendafacil.rascunho', array_merge(is_array($rascunho) ? $rascunho : [], [
+            'data_envio' => $dados['data_envio'],
+            'hora_envio' => $dados['hora_envio'],
+        ]));
+
+        return redirect()->route('grupos.selecionar');
+    }
+
+    /**
+     * Etapa 5 — Confirmação: exibe todos os dados de forma elegante.
+     */
+    public function confirmarDados(Request $request)
+    {
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
+            return redirect()->route('agendafacil.codigo');
+        }
+
+        $rascunho = $request->session()->get('agendafacil.rascunho');
+        $grupo = $request->session()->get('agendafacil.grupo');
+
+        if (! is_array($rascunho) || empty($rascunho['data_envio']) || ! is_array($grupo)) {
+            return redirect()->route('grupos.selecionar');
+        }
+
+        return view('agendafacil.confirmar-dados', [
+            'telefone' => $request->session()->get('agendafacil.telefone'),
+            'telegramUser' => $request->session()->get('agendafacil.telegram_user'),
+            'grupo' => $grupo,
+            'rascunho' => $rascunho,
+            'mensagemInicial' => $rascunho['mensagem'] ?? ($request->session()->get('agendafacil.telegram_user.firstName') ?: 'Visitante'),
+        ]);
+    }
+
+    /**
+     * Confirmação final: verifica/cadastra o visitante, sincroniza os
+     * grupos e cria o agendamento pendente.
+     */
+    public function confirmarResumo(Request $request)
+    {
+        if (! $request->session()->get('agendafacil.telegram_ok')) {
+            return redirect()->route('agendafacil.codigo');
+        }
+
+        $rascunho = $request->session()->get('agendafacil.rascunho');
+        $grupoSel = $request->session()->get('agendafacil.grupo');
+        $telegramUser = $request->session()->get('agendafacil.telegram_user');
+
+        if (! is_array($rascunho) || empty($rascunho['data_envio']) || ! is_array($grupoSel)) {
+            return redirect()->route('grupos.selecionar');
+        }
+
+        $dados = $request->validate([
+            'mensagem' => ['required', 'string', 'max:200'],
+        ], [
+            'mensagem.required' => 'Digite a mensagem que aparecerá no grupo.',
+            'mensagem.max' => 'A mensagem deve ter no máximo 200 caracteres.',
+        ]);
+
+        $telegramId = (string) ($telegramUser['id'] ?? '');
+        $telefone = (string) $request->session()->get('agendafacil.telefone');
+        $nome = trim((string) ($telegramUser['firstName'] ?? 'Visitante'));
+
+        $usuario = User::where('telegram_id', $telegramId)->first()
+            ?? User::where('telefone', $telefone)->first()
+            ?? User::where('telefone', 'like', '%' . substr((string) preg_replace('/\D/', '', $telefone), -8))->first();
+
+        if (! $usuario) {
+            $usuario = User::create([
+                'name' => $nome ?: 'Visitante',
+                'telefone' => $telefone,
+                'telegram_id' => $telegramId !== '' ? $telegramId : null,
+                'telegram_username' => $telegramUser['username'] ?? null,
+            ]);
+        } else {
+            $usuario->fill([
+                'telefone' => $usuario->telefone ?: $telefone,
+                'telegram_id' => $usuario->telegram_id ?: ($telegramId !== '' ? $telegramId : null),
+            ])->save();
+        }
+
+        $this->sincronizarGrupos($usuario, $request->session()->get('agendafacil.telegram_grupos', []));
+
+        $grupo = GrupoTelegram::where('usuario_id', $usuario->id)
+            ->where('chat_id', (string) $grupoSel['chat_id'])
+            ->first();
+
+        if (! $grupo) {
+            return redirect()->route('grupos.selecionar')
+                ->withErrors(['grupo_id' => 'Grupo indisponível no momento.']);
+        }
+
+        $dataHora = \Carbon\Carbon::parse($rascunho['data_envio'] . ' ' . $rascunho['hora_envio']);
+
+        if ($dataHora->isPast()) {
+            return redirect()->route('agendafacil.horario')
+                ->withErrors(['data_envio' => 'A data/hora do envio precisa estar no futuro.']);
+        }
+
+        $posicao = Agendamento::proximaPosicao($grupo->id, $dataHora);
+        $total = Agendamento::totalGrupoHorario($grupo->id, $dataHora) + 1;
+
+        $agendamento = Agendamento::create([
+            'user_id' => $usuario->id,
+            'grupo_telegram_id' => $grupo->id,
+            'nome_visitante' => $usuario->name,
+            'senha_codigo' => static::gerarSenhaCodigo(),
+            'texto' => trim($dados['mensagem']),
+            'posicao' => $posicao,
+            'total_grupo_horario' => $total,
+            'destino_tipo' => Agendamento::DESTINO_GRUPO,
+            'destino_id' => (string) $grupo->chat_id,
+            'destino_nome' => $grupo->nome,
+            'data_hora_envio' => $dataHora,
+            'status' => Agendamento::STATUS_PENDENTE,
+            'ip_origem' => $request->ip(),
+        ]);
+
+        $request->session()->put('agendafacil.visitante_id', $usuario->id);
+        $request->session()->put('agendafacil.agendamento_id', $agendamento->id);
+        $request->session()->forget(['agendafacil.rascunho', 'agendafacil.grupo']);
+
+        return redirect()->route('agendafacil.concluido');
+    }
+
+    /**
+     * Sincroniza os grupos da conta Telegram na tabela do visitante
+     * (mesma lógica do fluxo antigo, mantém config existente).
+     */
+    protected function sincronizarGrupos(User $usuario, array $grupos): void
+    {
+        $validos = collect($grupos)
+            ->filter(fn ($grupo) => is_array($grupo)
+                && in_array($grupo['tipo'] ?? null, ['group', 'supergroup'], true)
+                && filled($grupo['chat_id'] ?? null)
+                && filled($grupo['nome'] ?? null))
+            ->keyBy(fn ($grupo) => (string) $grupo['chat_id']);
+
+        $usuario->gruposTelegram()
+            ->whereNotIn('chat_id', $validos->keys()->all())
+            ->update(['ativo' => false]);
+
+        foreach ($validos as $grupo) {
+            $chatId = (string) $grupo['chat_id'];
+            $existente = $usuario->gruposTelegram()->where('chat_id', $chatId)->first();
+
+            if ($existente) {
+                $existente->update([
+                    'nome' => mb_substr((string) $grupo['nome'], 0, 150),
+                    'tipo' => $grupo['tipo'],
+                    'ativo' => true,
+                ]);
+
+                continue;
+            }
+
+            $configuracao = GrupoTelegram::where('chat_id', $chatId)->orderBy('id')->first();
+
+            $usuario->gruposTelegram()->create([
+                'nome' => mb_substr((string) $grupo['nome'], 0, 150),
+                'chat_id' => mb_substr($chatId, 0, 60),
+                'tipo' => $grupo['tipo'],
+                'modo' => $configuracao?->modo ?? GrupoTelegram::MODO_ABERTO,
+                'horario_abertura' => $configuracao?->horario_abertura?->format('H:i'),
+                'horario_fechamento' => $configuracao?->horario_fechamento?->format('H:i'),
+                'horario_disparo' => $configuracao?->horario_disparo?->format('H:i'),
+                'dias_semana' => $configuracao?->dias_semana,
+                'ordem' => $configuracao?->ordem ?? 0,
+                'ativo' => true,
+            ]);
+        }
+    }
+
+    /**
+     * Etapa 6 — Concluído.
+     */
+    public function concluido(Request $request)
+    {
+        $agendamentoId = $request->session()->get('agendafacil.agendamento_id');
+        $agendamento = $agendamentoId ? Agendamento::find($agendamentoId) : null;
+
+        return view('agendafacil.concluido-unificado', compact('agendamento'));
+    }
+
+    protected function normalizarTelefone(string $telefone): string
+    {
+        $digitos = preg_replace('/\D/', '', $telefone);
+
+        if (strlen($digitos) <= 11 && ! str_starts_with($digitos, '55')) {
+            $digitos = '55' . $digitos;
+        }
+
+        return '+' . $digitos;
+    }
+
     protected function sugestaoEnvio(): \Carbon\Carbon
     {
         $base = now()->addMinutes(30)->startOfMinute();
@@ -130,467 +470,6 @@ class AcessoController extends Controller
         return $base;
     }
 
-    /**
-    * Etapa 3 (passo 1) — Valida grupo + mensagem + data/hora e exibe a
-     * tela de resumo (Item 6.2) antes da confirmação final.
-     * Regras por modo do grupo (Item 4.4): fechado fixa o horário de
-     * envio e respeita abertura/fechamento; aberto usa data/hora livres.
-     */
-    public function salvarConfirmacao(Request $request)
-    {
-        $usuario = $this->visitanteAtual($request);
-
-        if (! $usuario) {
-            return redirect()->route('agendafacil.acesso');
-        }
-
-        if (! $request->session()->get('agendafacil.telegram_ok')) {
-            return redirect()->route('agendafacil.codigo');
-        }
-
-        // O parâmetro xN foi removido: "Jackson x1" digitado ou vindo de
-        // rascunho legado vira "Jackson".
-        $request->merge([
-            'mensagem' => $this->semSufixoSenha((string) $request->input('mensagem', '')),
-        ]);
-
-        $dados = $request->validate([
-            'grupo_id' => ['required', 'exists:grupo_telegrams,id'],
-            'mensagem' => ['required', 'string', 'max:200'],
-            'data_envio' => ['required', 'date'],
-            'hora_envio' => ['required', 'date_format:H:i'],
-        ], [
-            'grupo_id.required' => 'Selecione o grupo.',
-            'grupo_id.exists' => 'Grupo selecionado inválido.',
-            'mensagem.required' => 'Digite a mensagem que aparecerá no grupo.',
-            'mensagem.max' => 'A mensagem deve ter no máximo 200 caracteres.',
-            'data_envio.required' => 'Informe a data do envio.',
-            'hora_envio.required' => 'Informe o horário que será enviado.',
-        ]);
-
-        $grupo = GrupoTelegram::where('usuario_id', $usuario->id)
-            ->ativos()
-            ->find($dados['grupo_id']);
-
-        if (! $grupo) {
-            return back()
-                ->withErrors(['grupo_id' => 'Grupo indisponível no momento.'])
-                ->withInput();
-        }
-
-        $resolucao = $this->resolverEnvio($grupo, $dados['data_envio'], $dados['hora_envio']);
-
-        if (isset($resolucao['erro'])) {
-            return back()->withErrors($resolucao['erro'])->withInput();
-        }
-
-        $agendamento = $this->agendamentoPendenteParaData($request, $usuario, $resolucao['data_hora']);
-        $excetoId = $agendamento?->id;
-
-        if ($grupo->ehFechado()) {
-            $posicao = Agendamento::proximaPosicaoRodada($grupo->id, $resolucao['data_hora'], $excetoId);
-            $total = Agendamento::totalRodada($grupo->id, $resolucao['data_hora'], $excetoId) + 1;
-        } else {
-            $posicao = Agendamento::proximaPosicao($grupo->id, $resolucao['data_hora'], $excetoId);
-            $total = Agendamento::totalGrupoHorario($grupo->id, $resolucao['data_hora'], $excetoId) + 1;
-        }
-
-        $request->session()->put('agendafacil.rascunho', [
-            'grupo_id' => $grupo->id,
-            'mensagem' => trim($dados['mensagem']),
-            'data_envio' => $dados['data_envio'],
-            'hora_envio' => $dados['hora_envio'],
-            'data_hora_envio' => $resolucao['data_hora']->format('Y-m-d H:i:s'),
-            'posicao' => $posicao,
-            'total' => $total,
-            'proxima_rodada' => $resolucao['proxima_rodada'],
-        ]);
-
-        return redirect()->route('agendafacil.resumo');
-    }
-
-    /**
-    * Etapa 3 (passo 2) — Tela de resumo antes da confirmação final.
-     */
-    public function resumo(Request $request)
-    {
-        $usuario = $this->visitanteAtual($request);
-
-        if (! $usuario) {
-            return redirect()->route('agendafacil.acesso');
-        }
-
-        if (! $request->session()->get('agendafacil.telegram_ok')) {
-            return redirect()->route('agendafacil.codigo');
-        }
-
-        $rascunho = $this->rascunhoLimpo($request);
-
-        if (! $rascunho) {
-            return redirect()->route('agendafacil.confirmar-dados');
-        }
-
-        $grupo = GrupoTelegram::where('usuario_id', $usuario->id)
-            ->ativos()
-            ->find($rascunho['grupo_id']);
-
-        if (! $grupo) {
-            return redirect()->route('agendafacil.confirmar-dados')
-                ->withErrors(['grupo_id' => 'Grupo indisponível no momento.']);
-        }
-
-        return view('agendafacil.confirmar-resumo', compact('usuario', 'grupo', 'rascunho'));
-    }
-
-    /**
-    * Etapa 3 (passo 2) — Confirmação final: cria/atualiza o agendamento
-    * (definido no momento da confirmação) e segue para a seleção de grupos.
-     */
-    public function confirmarResumo(Request $request)
-    {
-        $usuario = $this->visitanteAtual($request);
-
-        if (! $usuario) {
-            return redirect()->route('agendafacil.acesso');
-        }
-
-        if (! $request->session()->get('agendafacil.telegram_ok')) {
-            return redirect()->route('agendafacil.codigo');
-        }
-
-        $rascunho = $this->rascunhoLimpo($request);
-
-        if (! $rascunho) {
-            return redirect()->route('agendafacil.confirmar-dados');
-        }
-
-        $grupo = GrupoTelegram::where('usuario_id', $usuario->id)
-            ->ativos()
-            ->find($rascunho['grupo_id']);
-
-        if (! $grupo) {
-            return redirect()->route('agendafacil.confirmar-dados')
-                ->withErrors(['grupo_id' => 'Grupo indisponível no momento.']);
-        }
-
-        // Recalcula no momento da confirmação (a rodada pode ter mudado).
-        $resolucao = $this->resolverEnvio($grupo, $rascunho['data_envio'], $rascunho['hora_envio']);
-
-        if (isset($resolucao['erro'])) {
-            return redirect()->route('agendafacil.confirmar-dados')
-                ->withErrors($resolucao['erro']);
-        }
-
-        $agendamento = $this->agendamentoPendenteParaData($request, $usuario, $resolucao['data_hora']);
-        $excetoId = $agendamento?->id;
-
-        if ($grupo->ehFechado()) {
-            $posicao = Agendamento::proximaPosicaoRodada($grupo->id, $resolucao['data_hora'], $excetoId);
-            $total = Agendamento::totalRodada($grupo->id, $resolucao['data_hora'], $excetoId) + 1;
-        } else {
-            $posicao = Agendamento::proximaPosicao($grupo->id, $resolucao['data_hora'], $excetoId);
-            $total = Agendamento::totalGrupoHorario($grupo->id, $resolucao['data_hora'], $excetoId) + 1;
-        }
-
-        // A mensagem vai sem o sufixo legado xN.
-        $textoFinal = $this->semSufixoSenha((string) $rascunho['mensagem']);
-
-        if (! $agendamento) {
-            $agendamento = Agendamento::create([
-                'user_id' => $usuario->id,
-                'grupo_telegram_id' => $grupo->id,
-                'nome_visitante' => $usuario->name,
-                'senha_codigo' => static::gerarSenhaCodigo(),
-                'texto' => $textoFinal,
-                'posicao' => $posicao,
-                'total_grupo_horario' => $total,
-                'destino_tipo' => Agendamento::DESTINO_GRUPO,
-                'destino_id' => (string) $grupo->chat_id,
-                'destino_nome' => $grupo->nome,
-                'data_hora_envio' => $resolucao['data_hora'],
-                'status' => Agendamento::STATUS_PENDENTE,
-                'ip_origem' => $request->ip(),
-            ]);
-        } else {
-            $agendamento->update([
-                'grupo_telegram_id' => $grupo->id,
-                'destino_tipo' => Agendamento::DESTINO_GRUPO,
-                'destino_id' => (string) $grupo->chat_id,
-                'destino_nome' => $grupo->nome,
-                'texto' => $textoFinal,
-                'posicao' => $posicao,
-                'total_grupo_horario' => $total,
-                'data_hora_envio' => $resolucao['data_hora'],
-            ]);
-        }
-
-        if ($resolucao['proxima_rodada']) {
-            $request->session()->flash(
-                'aviso',
-                'Este grupo já fechou hoje. Você estará na 1ª posição da próxima rodada (' . $resolucao['data_hora']->format('d/m') . ').'
-            );
-        }
-
-        $request->session()->forget('agendafacil.rascunho');
-        $request->session()->put('agendafacil.agendamento_id', $agendamento->id);
-        // Mantém compat com etapas antigas que liam esta chave.
-        $request->session()->put('agendafacil.confirmacao', [
-            'nome_visitante' => $agendamento->nome_visitante ?? $usuario->name,
-            'destino_tipo' => Agendamento::DESTINO_GRUPO,
-        ]);
-
-        return redirect()->route('grupos.selecionar');
-    }
-
-    /**
-     * Resolve data/hora final do envio conforme o modo do grupo.
-     * Retorna ['data_hora' => Carbon, 'proxima_rodada' => bool]
-     * ou ['erro' => [campo => mensagem]].
-     */
-    protected function resolverEnvio(GrupoTelegram $grupo, string $dataEnvio, string $horaEnvio): array
-    {
-        $agora = now();
-
-        if ($grupo->ehFechado()) {
-            $disparo = $grupo->disparoEm($agora);
-
-            if (! $disparo) {
-                return ['erro' => ['grupo_id' => 'Este grupo ainda não tem horário de envio configurado. Entre em contato.']];
-            }
-
-            $hoje = $agora->copy()->startOfDay();
-            $escolhido = \Carbon\Carbon::parse($dataEnvio)->startOfDay();
-
-            if ($escolhido->lt($hoje)) {
-                return ['erro' => ['data_envio' => 'A data do envio precisa ser hoje ou futura.']];
-            }
-
-            if (! $grupo->funcionaEm($escolhido)) {
-                return ['erro' => ['data_envio' => 'Este grupo não funciona neste dia. Escolha outro dia.']];
-            }
-
-            $proximaRodada = $escolhido->gt($hoje);
-
-            if (! $proximaRodada) {
-                $abertura = $grupo->aberturaEm($hoje);
-                $fechamento = $grupo->fechamentoEm($hoje);
-
-                if ($abertura && $agora->lt($abertura)) {
-                    return ['erro' => ['grupo_id' => 'Este grupo abre às ' . $abertura->format('H:i') . '. Volte neste horário para agendar.']];
-                }
-
-                if ($fechamento && $agora->gt($fechamento)) {
-                    $escolhido = $grupo->proximoDiaValido($hoje->copy()->addDay());
-                    $proximaRodada = true;
-                }
-            }
-
-            return [
-                'data_hora' => $grupo->disparoEm($escolhido),
-                'proxima_rodada' => $proximaRodada,
-            ];
-        }
-
-        $dataHora = \Carbon\Carbon::parse($dataEnvio . ' ' . $horaEnvio);
-
-        if ($dataHora->isPast()) {
-            return ['erro' => ['data_envio' => 'A data/hora do envio precisa estar no futuro.']];
-        }
-
-        if (! $grupo->funcionaEm($dataHora)) {
-            return ['erro' => ['data_envio' => 'Este grupo não funciona neste dia. Escolha outro dia.']];
-        }
-
-        return ['data_hora' => $dataHora, 'proxima_rodada' => false];
-    }
-
-    /**
-    * Etapa 2 — Confirmação pelo próprio Telegram (Login Widget).
-     * O código de 6 dígitos no grupo segue disponível no backend como
-     * fallback desativado (validar/reenviar), sem envio automático.
-     */
-    public function codigo(Request $request, TelegramMtprotoService $telegramMtproto)
-    {
-        $usuario = $this->visitanteAtual($request);
-
-        if (! $usuario) {
-            return redirect()->route('agendafacil.acesso');
-        }
-
-        $agendamento = $this->agendamentoAtual($request, $usuario);
-        $grupo = $agendamento?->grupo;
-
-        // Confirmação pelo próprio Telegram (Login Widget, preferencial).
-        $bot = TelegramValidacaoController::dadosBotValidacao();
-
-        return view('agendafacil.codigo', [
-            'grupo' => $grupo,
-            'agendamento' => $agendamento,
-            'botUsername' => $bot['username'],
-            'temBot' => $bot['temBot'],
-            'usandoEnv' => $bot['usandoEnv'],
-            'dominio' => $bot['dominio'],
-            'confirmarUrl' => route('telegram.confirmar-callback'),
-            'mtprotoConfigurado' => $telegramMtproto->configurado(),
-        ]);
-    }
-
-    /**
-     * Descarta o código atual para gerar e reenviar um novo no grupo.
-     */
-    public function reenviarCodigo(Request $request)
-    {
-        $request->session()->forget(['agendafacil.codigo', 'agendafacil.codigo_enviado_telegram', 'agendafacil.codigo_grupo_id']);
-
-        return redirect()
-            ->route('agendafacil.codigo')
-            ->with('sucesso', 'Gerando um novo código e reenviando no grupo do Telegram...');
-    }
-
-    public function validarCodigo(Request $request)
-    {
-        if (! $this->visitanteAtual($request)) {
-            return redirect()->route('agendafacil.acesso');
-        }
-
-        $dados = $request->validate([
-            'codigo' => ['required', 'digits:6'],
-        ]);
-
-        $esperado = $request->session()->get('agendafacil.codigo');
-
-        if (! $esperado || $dados['codigo'] !== $esperado) {
-            return back()->withErrors(['codigo' => 'Código inválido. Tente novamente.']);
-        }
-
-        $request->session()->put('agendafacil.codigo_ok', true);
-        $request->session()->forget('agendafacil.codigo');
-
-        return redirect()->route('grupos.selecionar');
-    }
-
-    /**
-     * Etapa 5 — Concluído (print 08.jpeg). Encerra o fluxo com o resumo
-     * do envio + posição; o restante acontece automaticamente no horário.
-     */
-    public function concluido(Request $request)
-    {
-        $usuario = $this->visitanteAtual($request);
-
-        if (! $usuario) {
-            return redirect()->route('agendafacil.acesso');
-        }
-
-        $agendamento = $this->agendamentoAtual($request, $usuario);
-
-        return view('agendafacil.concluido-unificado', compact('agendamento'));
-    }
-
-    /**
-     * Mensagem inicial do campo editável: texto já cadastrado sem o
-     * sufixo legado "xN" (ex.: "Jackson x1" → "Jackson");
-     * senão pré-preenche com o nome do visitante.
-     */
-    protected function mensagemSugerida(User $usuario, ?Agendamento $agendamento): string
-    {
-        if ($agendamento && filled($agendamento->texto)) {
-            return $this->semSufixoSenha((string) $agendamento->texto);
-        }
-
-        $nome = $agendamento?->nome_visitante ?: $usuario->name;
-
-        return $this->semSufixoSenha((string) $nome);
-    }
-
-    /**
-     * Remove o sufixo legado de senha ("xNÚMERO" ao final, ex.: " x1").
-     */
-    protected function semSufixoSenha(string $mensagem): string
-    {
-        return trim((string) preg_replace('/\s*x\s*\d+\s*$/i', '', trim($mensagem)));
-    }
-
-    protected function visitanteAtual(Request $request): ?User
-    {
-        $id = $request->session()->get('agendafacil.visitante_id');
-
-        if (! $id) {
-            return null;
-        }
-
-        // Sessão local do fluxo vale 2h (validação por widget ou 4 dígitos).
-        $acessoEm = (int) $request->session()->get('agendafacil.acesso_em', 0);
-        if ($acessoEm > 0 && (time() - $acessoEm) > TelegramValidacaoController::VALIDADE_SEGUNDOS) {
-            $request->session()->forget('agendafacil');
-
-            return null;
-        }
-
-        return User::find($id);
-    }
-
-    /**
-     * Agendamento do visitante exibido no fluxo (/acesso, /codigo,
-     * /concluido): somente pendentes. Nunca reaproveita agendamento já
-     * disparado (enviado), com erro ou cancelado — um novo fluxo parte
-     * de sugestão nova (hoje + 30min) e só atualiza pendente do mesmo dia.
-     */
-    protected function agendamentoAtual(Request $request, User $usuario): ?Agendamento
-    {
-        $idSessao = $request->session()->get('agendafacil.agendamento_id');
-
-        if ($idSessao) {
-            $daSessao = Agendamento::with('grupo')->find($idSessao);
-
-            if ($daSessao
-                && (int) $daSessao->user_id === (int) $usuario->id
-                && $daSessao->status === Agendamento::STATUS_PENDENTE) {
-                return $daSessao;
-            }
-        }
-
-        return Agendamento::with('grupo')
-            ->where('user_id', $usuario->id)
-            ->where('status', Agendamento::STATUS_PENDENTE)
-            ->latest('data_hora_envio')
-            ->first();
-    }
-
-    /**
-     * Regra de criação vs. atualização:
-     * - mesmo dia (data do envio) + pendente do mesmo visitante → atualiza
-     *   o horário (reaproveita o registro);
-     * - data diferente → retorna null para cadastrar um novo agendamento;
-     * - enviado/erro/cancelado nunca são reaproveitados.
-     */
-    protected function agendamentoPendenteParaData(Request $request, User $usuario, \DateTimeInterface $dataHora): ?Agendamento
-    {
-        $dia = \Carbon\Carbon::parse($dataHora)->toDateString();
-
-        $idSessao = $request->session()->get('agendafacil.agendamento_id');
-
-        if ($idSessao) {
-            $daSessao = Agendamento::find($idSessao);
-
-            if ($daSessao
-                && (int) $daSessao->user_id === (int) $usuario->id
-                && $daSessao->status === Agendamento::STATUS_PENDENTE
-                && \Carbon\Carbon::parse($daSessao->data_hora_envio)->toDateString() === $dia) {
-                return $daSessao->load('grupo');
-            }
-        }
-
-        return Agendamento::with('grupo')
-            ->where('user_id', $usuario->id)
-            ->where('status', Agendamento::STATUS_PENDENTE)
-            ->whereDate('data_hora_envio', $dia)
-            ->latest('data_hora_envio')
-            ->first();
-    }
-
-    /**
-     * Gera uma senha curta para o disparo (ex.: AF-4F8K2).
-     */
     public static function gerarSenhaCodigo(): string
     {
         return 'AF-' . Str::upper(Str::random(5));

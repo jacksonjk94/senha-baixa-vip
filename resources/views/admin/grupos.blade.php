@@ -30,29 +30,30 @@
 <table class="table mb-0">
     <thead><tr><th>Nome</th><th>chat_id</th><th>Conta vinculada</th><th>Tipo</th><th>Regra</th><th>Horários</th><th>Ativo</th><th>Ação</th></tr></thead>
     <tbody>
-    @forelse ($grupos as $g)
-        <tr>
-            <td data-label="Nome">{{ $g->nome }}</td>
-            <td data-label="Chat ID"><code>{{ $g->chat_id }}</code></td>
-            <td data-label="Conta vinculada">{{ $g->usuario?->name ?? 'Sem vínculo' }}{{ $g->usuario?->telegram_username ? ' (@'.$g->usuario->telegram_username.')' : ($g->usuario?->telegram_id ? ' (ID '.$g->usuario->telegram_id.')' : '') }}</td>
-            <td data-label="Tipo">{{ $g->tipo }}</td>
-            <td data-label="Regra"><span class="badge-tg {{ $g->modo === 'fechado' ? 'badge-pendente' : 'badge-enviado' }}">{{ $g->etiquetaModo() }}</span></td>
-            <td data-label="Horários"><small>{{ $g->horario_abertura?->format('H:i') ?? '—' }} / {{ $g->horario_fechamento?->format('H:i') ?? '—' }} / {{ $g->horario_disparo?->format('H:i') ?? '—' }}</small></td>
-            <td data-label="Ativo">{{ $g->ativo ? '✅' : '⏸' }}</td>
-            <td class="text-nowrap af-cell-actions">
-                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditarGrupo{{ $g->id }}">Editar</button>
-                <form method="POST" action="{{ route('admin.grupos.alternar', $g) }}" class="d-inline">@csrf @method('PATCH')
-                    <button class="btn btn-sm btn-outline-secondary">{{ $g->ativo ? 'Desativar' : 'Ativar' }}</button>
-                </form>
-            </td>
-        </tr>
-    @empty
-        <tr><td colspan="8" class="text-center text-muted">Nenhum grupo cadastrado.</td></tr>
-    @endforelse
+    @include('admin.partials.grupos_rows', ['grupos' => $grupos])
     </tbody>
 </table>
 </div></div></div>
 <div class="mt-3">{{ $grupos->links() }}</div>
+
+<script>
+    (function () {
+        function ids(doc) {
+            return Array.from(doc.querySelectorAll('[data-row-id]')).map(function (r) { return r.dataset.rowId; }).join(',');
+        }
+        async function refresh() {
+            try {
+                var r = await fetch('{{ route('admin.grupos.dados') }}' + window.location.search, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (!r.ok) return;
+                var doc = new DOMParser().parseFromString('<table><tbody>' + (await r.text()) + '</tbody></table>', 'text/html');
+                if (ids(doc) !== ids(document)) { location.reload(); return; }
+                var atual = document.querySelector('tbody');
+                atual.innerHTML = doc.querySelector('tbody').innerHTML;
+            } catch (e) { /* ignora */ }
+        }
+        setInterval(refresh, 5000);
+    })();
+</script>
 
 @foreach ($grupos as $g)
 {{-- Dialog: editar regras do grupo --}}

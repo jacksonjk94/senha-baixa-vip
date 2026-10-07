@@ -1,4 +1,4 @@
-# LOG DE ALTERAÇÕES — AgendaFácil
+﻿# LOG DE ALTERAÇÕES — AgendaFácil
 
 **Sistema de Disparo de Senhas via Telegram**
 Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
@@ -37,10 +37,66 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 24/09/2026 | 2.7.0 | SenhaBaixa v2 | Fluxo público simplificado (posição, texto livre, cancelar) + botões com gradiente — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 24/09/2026 | 2.7.1 | SenhaBaixa v2 | Complemento Postgres (coluna ordem) — ver detalhes abaixo | OpenCode (Muse Spark) |
 | 06/10/2026 | 3.3.0 | MTProto | 🔶 Listagem de grupos pessoais via Teleproto; teste local automatizado, autenticação real pendente | GitHub Copilot |
+| 07/10/2026 | 3.4.0 | Fluxo | Novo fluxo público (telefone → código MTProto → horário → grupo → confirmação → concluído) | OpenCode |
+| 07/10/2026 | 3.4.1 | Infra | Correção SSL (cacert.pem no PHP do Wamp) — disparos via Bot API falhavam com cURL error 60 | OpenCode |
+| 07/10/2026 | 3.4.2 | Fluxo/Admin | Visão geral do /admin com atualização em tempo real (polling 5s) | OpenCode |
+| 07/10/2026 | 3.4.3 | Fluxo | MTProto: mensagem clara para API_ID_INVALID; normalização do telefone no modo "Já agendei antes"; fallback para "Primeiro agendamento" | OpenCode |
+| 07/10/2026 | 3.4.4 | Fluxo/UX | Foco automático nos campos (acesso, confirmar-dados), botão "Colar" no código | OpenCode |
+| 07/10/2026 | 3.4.5 | Admin | Tempo real em /admin/cadastros, /admin/disparos e /admin/grupos | OpenCode |
+| 07/10/2026 | 3.4.6 | Segurança/Infra | /telegram/teste-api restrita a admin; favicon SVG global | OpenCode |
+| 07/10/2026 | 4.1.0 | Estilo/UX | Atualização visual da área de agendamento: paleta Telegram escuro (azul-900/slate), linha do tempo horizontal substituindo abas (partials/timeline), gradiente interativo nos botões (from-blue-900 to-blue-700 → hover from-blue-800 to-blue-600 + .btn-telegram), inputs com foco blue-700, fontes compactas preservadas em todas as telas do fluxo | OpenCode |
 
 ---
 
 ## 🔍 Detalhamento das implementações (v2.x)
+
+### v3.4.0 — Novo fluxo público de agendamento ✅ (07/10/2026)
+
+Fluxo refeito em 6 etapas: Telefone → Código → Horário → Grupo → Confirmar → Concluído.
+
+- **Etapa 1 (`/acesso`)**: toggle "Primeiro agendamento" (padrão, +55 fixo só DDD+número) / "Já agendei antes" (4 últimos dígitos). Telefone normalizado antes de seguir.
+- **Etapa 2 (`/codigo`)**: ao acessar, já envia o código MTProto ao telefone da etapa 1; botão reenviar com cooldown de 60s (JS + servidor); campo 2FA exibido só quando `needs_password` retorna; grupo/mensagens lista usam apenas `group`/`supergroup` da conta.
+- **Etapa 3 (`/horario`)**: data e hora com as regras atuais (futuro).
+- **Etapa 4 (`/grupos/selecionar`)**: cards com badge Grupo/Supergrupo dos grupos vindos do MTProto.
+- **Etapa 5 (`/confirmar-dados`)**: exibe telefone, conta Telegram, grupo, data/hora e mensagem editável com prévia.
+- **Etapa 6 (`/concluido`)**: mensagem de conclusão; internamente busca/cria o `User` (telegram_id ou telefone), sincroniza `GrupoTelegram` e cria o `Agendamento` pendente.
+- Rotas antigas (`agendafacil.resumo`, `agendafacil.confirmar-dados.salvar`, `agendafacil.codigo.validar`) removidas; `AcessoController` e `GrupoController` reescritos.
+- **Validação**: `php artisan route:list` OK; `php -l` OK nos controllers.
+
+### v3.4.1 — Correção SSL nos disparos (Bot API) ✅ (07/10/2026)
+
+- **Problema**: agendamentos terminavam em `erro` com `cURL error 60: SSL certificate problem` no envio via Bot API (Wamp/PHP sem CA bundle).
+- **Correção**: `cacert.pem` baixado em `D:\ProgramFiles\Wamp\bin\php\php8.3.0\`; `php.ini` e `phpForApache.ini` com `curl.cainfo` e `openssl.cafile`; `queue:listen` reiniciado; agendamentos com erro reprocessados → `enviado`.
+- **Atenção**: em dev é preciso rodar `php artisan schedule:work` para `agendafacil:disparar` rodar a cada minuto.
+
+### v3.4.2 — Visão geral do /admin em tempo real ✅ (07/10/2026)
+
+- Nova rota `GET /admin/dados` (`AdminController::dados`) com totais + últimos agendamentos em JSON.
+- `admin/inicio.blade.php` com polling de 5s atualizando contadores e tabela sem recarregar.
+
+### v3.4.3 — Ajustes MTProto/acesso ✅ (07/10/2026)
+
+- `services/telegram-mtproto/server.js`: `API_ID_INVALID` agora retorna mensagem clara ("Credenciais da API do Telegram inválidas..."); serviço reiniciado.
+- `AcessoController::validarAcesso`: telefone do cadastro (modo retorno) normalizado com `normalizarTelefone()`; cadastro sem telefone válido retorna para aba "Primeiro agendamento" com mensagem; dígitos não encontrados orientam a usar "Primeiro agendamento".
+- Erro de reenvio não aparece mais duplicado (alerta único na tela de código).
+- Placeholders de telefone trocados para `(11) 90000-0000`; placeholder com nome da cliente em `senhabaixa/agendar.blade.php` trocado para "Ex.: Maria Silva".
+
+### v3.4.4 — Foco e UX nos campos ✅ (07/10/2026)
+
+- `/acesso`: ao alternar ou carregar, foco vai para o campo do modo ativo (telefone completo ou 4 dígitos).
+- `/codigo`: botão "📋 Colar" dentro do input do código (lê a área de transferência, mantém só dígitos, máx. 8).
+- `/confirmar-dados`: foco no campo "Mensagem que aparecerá no grupo" com cursor ao final do texto.
+
+### v3.4.5 — Tempo real no admin ✅ (07/10/2026)
+
+- `/admin/cadastros` e `/admin/disparos`: polling de 5s troca o `tbody` da tabela (recarrega a página se a lista de IDs mudar, para reconstruir modais).
+- `/admin/grupos`: `admin.grupos.dados` (`AdminController::dadosGrupos`) retorna só as linhas, sem chamar a API do Telegram a cada poll.
+- Linhas extraídas para partials `admin/partials/{cadastros,disparos,grupos}_rows.blade.php`.
+
+### v3.4.6 — Segurança e favicon ✅ (07/10/2026)
+
+- `/telegram/teste-api*` agora exige `auth` + `admin` (antes pública).
+- `public/favicon.svg` (balão de mensagem azul) com `<link rel="icon">` em `layouts/admin.blade.php`, `layouts/telegram.blade.php` e `app.blade.php`.
 
 ### v3.3.0 — Listagem de grupos da conta pessoal via MTProto 🔶 (06/10/2026)
 

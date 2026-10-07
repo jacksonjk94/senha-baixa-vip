@@ -11,6 +11,7 @@ use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\ManualController;
 use App\Http\Controllers\TelegramBotsController;
 use App\Http\Controllers\TelegramController;
+use App\Http\Controllers\TelegramTesteApiController;
 use App\Http\Controllers\TelegramTesteController;
 use App\Http\Controllers\TelegramValidacaoController;
 use Illuminate\Foundation\Application;
@@ -36,16 +37,16 @@ Route::get('/agendamento/{agendamento}/confirmacao', [AgendamentoController::cla
 Route::get('/meus-agendamentos', [AgendamentoController::class, 'meus'])->name('agendamento.meus');
 
 // ── AgendaFácil · Fluxo único (Blade, identidade Telegram) ──
-// 1. Acesso → 2. Código → 3. Confirmar os Dados → 4. Grupos do Telegram → 5. Concluído
+// 1. Telefone → 2. Código → 3. Horário → 4. Grupo → 5. Confirmar → 6. Concluído
 Route::get('/acesso', [AcessoController::class, 'acesso'])->name('agendafacil.acesso');
 Route::post('/acesso', [AcessoController::class, 'validarAcesso'])->name('agendafacil.acesso.validar');
-Route::get('/confirmar-dados', [AcessoController::class, 'confirmarDados'])->name('agendafacil.confirmar-dados');
-Route::post('/confirmar-dados', [AcessoController::class, 'salvarConfirmacao'])->name('agendafacil.confirmar-dados.salvar');
-Route::get('/confirmar-dados/resumo', [AcessoController::class, 'resumo'])->name('agendafacil.resumo');
-Route::post('/confirmar-dados/confirmar', [AcessoController::class, 'confirmarResumo'])->name('agendafacil.resumo.confirmar');
 Route::get('/codigo', [AcessoController::class, 'codigo'])->name('agendafacil.codigo');
-Route::post('/codigo', [AcessoController::class, 'validarCodigo'])->name('agendafacil.codigo.validar');
+Route::post('/codigo', [AcessoController::class, 'verificarCodigo'])->name('agendafacil.codigo.verificar');
 Route::post('/codigo/reenviar', [AcessoController::class, 'reenviarCodigo'])->name('agendafacil.codigo.reenviar');
+Route::get('/horario', [AcessoController::class, 'horario'])->name('agendafacil.horario');
+Route::post('/horario', [AcessoController::class, 'salvarHorario'])->name('agendafacil.horario.salvar');
+Route::get('/confirmar-dados', [AcessoController::class, 'confirmarDados'])->name('agendafacil.confirmar-dados');
+Route::post('/confirmar-dados/confirmar', [AcessoController::class, 'confirmarResumo'])->name('agendafacil.resumo.confirmar');
 Route::get('/concluido', [AcessoController::class, 'concluido'])->name('agendafacil.concluido');
 
 // Ajuda pública (guest): passo a passo do bot/grupos do Telegram.
@@ -69,6 +70,12 @@ Route::get('/telegram/conta/autorizar', [TelegramValidacaoController::class, 'au
 Route::post('/telegram/conta/enviar-codigo', [TelegramValidacaoController::class, 'enviarCodigoMtproto'])->middleware('throttle:3,10')->name('telegram.mtproto.enviar-codigo');
 Route::post('/telegram/conta/verificar', [TelegramValidacaoController::class, 'verificarCodigoMtproto'])->middleware('throttle:6,10')->name('telegram.mtproto.verificar');
 Route::post('/telegram/conta/cancelar', [TelegramValidacaoController::class, 'cancelarMtproto'])->name('telegram.mtproto.cancelar');
+
+Route::middleware(['auth', 'admin'])->group(function () {
+    Route::get('/telegram/teste-api', [TelegramTesteApiController::class, 'index'])->name('telegram.teste-api');
+    Route::post('/telegram/teste-api/enviar', [TelegramTesteApiController::class, 'enviar'])->name('telegram.teste-api.enviar');
+    Route::post('/telegram/teste-api/verificar', [TelegramTesteApiController::class, 'verificar'])->name('telegram.teste-api.verificar');
+});
 Route::post('/sair', [TelegramValidacaoController::class, 'sair'])->name('agendafacil.sair');
 Route::post('/telegram/disconnect', [TelegramController::class, 'disconnect'])->middleware('auth')->name('telegram.disconnect');
 
@@ -86,6 +93,7 @@ Route::post('/agendamento/{agendamento}/disparar', [DisparoController::class, 'd
 // Área Administrativa (protegida por papel admin)
 Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::get('/', [AdminController::class, 'index'])->name('admin.inicio');
+    Route::get('/dados', [AdminController::class, 'dados'])->name('admin.dados');
     Route::get('/cadastros', [AdminController::class, 'cadastros'])->name('admin.cadastros');
     Route::post('/cadastros', [AdminController::class, 'armazenarVisitante'])->name('admin.cadastros.salvar');
     Route::patch('/cadastros/{visitante}', [AdminController::class, 'atualizarVisitante'])->name('admin.cadastros.atualizar');
@@ -96,6 +104,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::delete('/usuarios/{usuario}', [AdminController::class, 'excluirUsuario'])->name('admin.usuarios.excluir');
     Route::get('/disparos', [AdminController::class, 'disparos'])->name('admin.disparos');
     Route::get('/grupos', [AdminController::class, 'grupos'])->name('admin.grupos');
+    Route::get('/grupos/dados', [AdminController::class, 'dadosGrupos'])->name('admin.grupos.dados');
     Route::post('/grupos', [AdminController::class, 'armazenarGrupo'])->name('admin.grupos.salvar');
     Route::post('/grupos/importar', [AdminController::class, 'importarGrupo'])->name('admin.grupos.importar');
     Route::patch('/grupos/{grupo}', [AdminController::class, 'atualizarGrupo'])->name('admin.grupos.atualizar');

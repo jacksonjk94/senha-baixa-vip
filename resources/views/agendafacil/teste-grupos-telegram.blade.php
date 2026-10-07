@@ -4,7 +4,7 @@
 @section('conteudo')
 <div class="card card-telegram">
     <div class="card-body p-4">
-        <p class="text-uppercase fw-bold small mb-1" style="color:#0B6B4F;letter-spacing:.04em">Diagnóstico</p>
+        <p class="text-uppercase fw-bold small mb-1" style="color:#1D4ED8;letter-spacing:.04em">Diagnóstico</p>
         <h1 class="h4 mb-2">Login e grupos Telegram</h1>
         <p class="text-muted">Confirme sua identidade pelo Telegram e autorize a consulta dos grupos da conta pessoal.</p>
 
@@ -13,7 +13,7 @@
         @enderror
 
         @if ($usuario)
-            <div class="border rounded p-3 mb-3" style="background:#F8FBFD">
+            <div class="border rounded p-3 mb-3" style="background:#F8FAFC">
                 <p class="small text-muted mb-1">Conta validada</p>
                 <p class="fw-bold mb-0">{{ $usuario->name }} · {{ $usuario->telegram_username ? '@'.$usuario->telegram_username : 'Telegram ID '.$usuario->telegram_id }}</p>
             </div>

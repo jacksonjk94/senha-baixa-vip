@@ -2,148 +2,61 @@
 @section('titulo', 'Confirmar dados')
 
 @section('conteudo')
-<div class="tg-steps">
-    <div class="tg-step done">1. Acesso ✓</div>
-    <div class="tg-step done">2. Código ✓</div>
-    <div class="tg-step active">3. Confirmar os Dados</div>
-    <div class="tg-step">4. Grupos do Telegram</div>
-    <div class="tg-step">5. Concluído</div>
-</div>
+@include('agendafacil.partials.timeline', ['etapaAtual' => 5])
 
-<div class="card card-telegram">
-    <div class="card-body p-4">
-        <p class="text-uppercase fw-bold small mb-1" style="color:#0B6B4F;letter-spacing:.04em">Login Telegram</p>
-        <h1 class="h4 mb-3">Confirmar dados</h1>
+<div class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm border border-slate-100 px-6 md:px-8 py-8">
+    <p class="text-xs font-bold tracking-wider uppercase text-blue-700 mb-1">Revisão</p>
+    <h1 class="text-2xl font-bold text-slate-800 mb-6">Confira os dados</h1>
 
-        @if ($grupos->isEmpty())
-            <div class="alert alert-warning">Nenhum grupo conhecido pelo bot foi encontrado para esta conta. Verifique se o bot está nos grupos e é administrador para consultar os participantes.</div>
-        @else
-        <form method="POST" action="{{ route('agendafacil.confirmar-dados.salvar') }}">
+    <div class="border border-slate-200 rounded-lg p-4 mb-4 bg-slate-50">
+            <p class="text-slate-500 text-xs mb-0">Telefone</p>
+            <p class="font-bold mb-2 text-slate-800 text-sm">{{ $telefone }}</p>
+
+            <p class="text-slate-500 text-xs mb-0">Conta Telegram</p>
+            <p class="font-bold mb-2 text-slate-800 text-sm">{{ $telegramUser['firstName'] ?? '—' }}{{ ! empty($telegramUser['username']) ? ' (@' . $telegramUser['username'] . ')' : '' }}</p>
+
+            <p class="text-slate-500 text-xs mb-0">Grupo</p>
+            <p class="font-bold mb-2 text-slate-800 text-sm">{{ $grupo['nome'] }} <small class="text-slate-500">({{ $grupo['tipo'] === 'supergroup' ? 'Supergrupo' : 'Grupo' }})</small></p>
+
+            <p class="text-slate-500 text-xs mb-0">Data e horário</p>
+            <p class="font-bold mb-0 text-slate-800 text-sm">{{ \Carbon\Carbon::parse($rascunho['data_envio'] . ' ' . $rascunho['hora_envio'])->format('d/m/Y \à\s H:i') }}</p>
+        </div>
+
+        <form method="POST" action="{{ route('agendafacil.resumo.confirmar') }}">
             @csrf
-            <label class="form-label fw-semibold" for="grupo_id">Grupo da sua conta onde o disparo será efetuado</label>
-            <select id="grupo_id" name="grupo_id" class="input-telegram" required>
-                @foreach ($grupos as $grupo)
-                    <option value="{{ $grupo->id }}"
-                        @selected((string) old('grupo_id', $rascunho['grupo_id'] ?? $agendamento?->grupo_telegram_id) === (string) $grupo->id)
-                        data-modo="{{ $grupo->modo }}"
-                        data-abertura="{{ $grupo->horario_abertura?->format('H:i') }}"
-                        data-fechamento="{{ $grupo->horario_fechamento?->format('H:i') }}"
-                        data-disparo="{{ $grupo->horario_disparo?->format('H:i') }}">{{ $grupo->nome }} {{ $grupo->etiquetaModo() }}</option>
-                @endforeach
-            </select>
-            @error('grupo_id')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-
-            <div id="aviso-grupo" class="rounded p-3 mt-2 small" style="background:#EAF6FD;color:#0B5A86"></div>
-
-            <label class="form-label fw-semibold mt-3" for="mensagem">Mensagem que aparecerá no grupo</label>
-            <input id="mensagem" name="mensagem" class="input-telegram" maxlength="200"
-                   placeholder="Ex: Maria Silva"
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="mensagem">Mensagem que aparecerá no grupo</label>
+            <input id="mensagem" name="mensagem" class="w-full px-4 py-3 border border-slate-200 rounded-lg outline-none text-slate-800 text-sm focus:border-blue-700 focus:ring-1 focus:ring-blue-700 transition-all duration-200" maxlength="200"
                    value="{{ old('mensagem', $rascunho['mensagem'] ?? $mensagemInicial) }}"
-                   data-nome="{{ $agendamento?->nome_visitante ?: $usuario->name }}" required>
-            @error('mensagem')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                   data-nome="{{ $telegramUser['firstName'] ?? 'Visitante' }}" required>
+            @error('mensagem')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
 
-            <p class="text-muted small mb-1 mt-3">Prévia de como chegará no grupo</p>
-            <div class="tg-preview">
-                <div class="tg-bubble">
-                    <div class="tg-sender">{{ $agendamento?->nome_visitante ?: $usuario->name }}</div>
-                    <div class="tg-text"><span id="prevTexto"></span><span class="tg-meta"><span id="prevHora"></span> <span class="tg-checks">✓✓</span></span></div>
+            <p class="text-slate-500 text-xs mb-1 mt-3">Prévia de como chegará no grupo</p>
+            <div style="display:flex">
+                <div style="background:#fff;border-radius:4px 16px 16px 16px;box-shadow:0 1px 2px rgba(30,58,138,.15);padding:8px 12px 6px;max-width:85%;min-width:180px;border:1px solid #E2E8F0">
+                    <div style="color:#1D4ED8;font-weight:700;font-size:13px;margin-bottom:2px">{{ $telegramUser['firstName'] ?? 'Visitante' }}</div>
+                    <div style="font-size:15px;color:#111;overflow-wrap:anywhere"><span id="prevTexto"></span> <span style="float:right;font-size:11px;color:#8A9BA8;margin:8px 0 0 8px">{{ \Carbon\Carbon::parse($rascunho['data_envio'] . ' ' . $rascunho['hora_envio'])->format('H:i') }} ✓✓</span></div>
                 </div>
             </div>
-            <style>
-                .tg-preview { display: flex; }
-                .tg-bubble {
-                    background: #fff; border-radius: 4px 16px 16px 16px;
-                    box-shadow: 0 1px 2px rgba(16, 35, 47, .18);
-                    padding: 8px 12px 6px; max-width: 85%; min-width: 180px;
-                }
-                .tg-sender { color: #2AABEE; font-weight: 700; font-size: 13px; margin-bottom: 2px; }
-                .tg-text { font-size: 15px; color: #111; overflow-wrap: anywhere; }
-                .tg-meta { float: right; font-size: 11px; color: #8A9BA8; margin: 8px 0 0 8px; }
-                .tg-checks { color: #2AABEE; }
-            </style>
 
-            <label class="form-label fw-semibold mt-3">Horário que será enviado</label>
-            <div class="row g-2">
-                <div class="col-6">
-                    <label class="form-label small text-muted" for="data_envio">Data do envio</label>
-                    <input id="data_envio" type="date" name="data_envio" class="input-telegram"
-                           value="{{ old('data_envio', $rascunho['data_envio'] ?? $sugestaoData) }}"
-                           min="{{ $dataMinima ?? $sugestaoData }}"
-                           required>
-                </div>
-                <div class="col-6">
-                    <label class="form-label small text-muted" for="hora_envio">Horário que será enviado</label>
-                    <input id="hora_envio" type="time" name="hora_envio" class="input-telegram"
-                           value="{{ old('hora_envio', $rascunho['hora_envio'] ?? $sugestaoHora) }}"
-                           required>
-                </div>
-            </div>
-            @error('data_envio')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-            @error('hora_envio')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-
-            <div class="border rounded p-3 my-3" style="border-color:#D8ECF7;background:#F8FBFD">
-                <p class="text-muted small mb-0">Tipo de disparo</p>
-                <p class="fw-bold mb-2">{{ $agendamento?->dados_senha ?? ($agendamento?->destino_tipo === 'pessoa' ? 'Individual' : 'Grupo') }}</p>
-
-                <p class="text-muted small mb-0">Telefone</p>
-                <p class="fw-bold mb-0">{{ preg_replace('/\D/', '', (string) ($usuario->telefone ?? '')) ?: '—' }}</p>
-            </div>
-
-            <div class="rounded p-3 mb-3" style="background:#FDF3E3;color:#8A5A00">
+            <div class="rounded-lg p-3 my-3 bg-amber-50 text-amber-800 text-xs">
                 Ao confirmar, você declara que é responsável pelos dados confirmados.
             </div>
 
-            <button type="submit" class="btn-telegram">Avançar →</button>
+            <button type="submit" class="w-full py-3 rounded-lg bg-gradient-to-r from-blue-900 to-blue-700 hover:from-blue-800 hover:to-blue-600 text-white font-semibold transition-all duration-200 shadow-sm active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">Confirmar agendamento</button>
         </form>
-        @endif
-    </div>
 </div>
 
 <script>
     (function () {
-        const grupo = document.getElementById('grupo_id');
-        const mensagem = document.getElementById('mensagem');
-        const aviso = document.getElementById('aviso-grupo');
-        const hora = document.getElementById('hora_envio');
-        const prevTexto = document.getElementById('prevTexto');
-        const prevHora = document.getElementById('prevHora');
-        if (!grupo) return;
-
-        function atualizarPrevia() {
-            if (!prevTexto || !mensagem) return;
-            prevTexto.textContent = mensagem.value.trim() || (mensagem.dataset.nome || '').trim() || 'Sua mensagem';
-            if (prevHora) {
-                const agora = new Date();
-                prevHora.textContent = String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
-            }
+        var mensagem = document.getElementById('mensagem');
+        var prevTexto = document.getElementById('prevTexto');
+        function atualizar() {
+            prevTexto.textContent = (mensagem.value.trim() || mensagem.dataset.nome || 'Sua mensagem');
         }
-
-        function atualizarAviso() {
-            const opt = grupo.options[grupo.selectedIndex];
-            if (!opt || !aviso) return;
-            const modo = opt.dataset.modo;
-            if (modo === 'fechado') {
-                aviso.style.display = '';
-                aviso.textContent = 'Grupo fechado — abre às ' + (opt.dataset.abertura || '—')
-                    + ', fecha às ' + (opt.dataset.fechamento || '—')
-                    + ', envia às ' + (opt.dataset.disparo || '—')
-                    + '. Sua mensagem sairá no envio em bloco.';
-                if (hora && opt.dataset.disparo) {
-                    hora.value = opt.dataset.disparo;
-                    hora.readOnly = true;
-                }
-            } else {
-                aviso.style.display = '';
-                aviso.textContent = 'Sua mensagem será enviada exatamente neste horário.';
-                if (hora) hora.readOnly = false;
-            }
-        }
-
-        grupo.addEventListener('change', atualizarAviso);
-        if (mensagem) mensagem.addEventListener('input', atualizarPrevia);
-
-        atualizarAviso();
-        atualizarPrevia();
+        mensagem.addEventListener('input', atualizar);
+        atualizar();
+        mensagem.focus();
+        mensagem.setSelectionRange(mensagem.value.length, mensagem.value.length);
     })();
 </script>
 @endsection

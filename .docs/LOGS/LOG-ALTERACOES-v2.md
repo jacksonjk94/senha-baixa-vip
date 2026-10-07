@@ -32,6 +32,13 @@ Projeto em Laravel · Curitiba/PR · 2026
 | 26/09/2026 | 3.2.3 | UX agendamento | ✅ `/confirmar-dados` sugere data/hora = agora + 30min arredondado p/ cima na dezena (ex: 16:56 → 17:30, com virada de dia); substitui o padrão fixo do admin quando sem valor anterior | OpenCode (Muse Spark) |
 | 26/09/2026 | 3.2.4 | UX mensagem | ✅ Visitante digita só o nome (sem exibir `xN`): sufixo digitado é removido, sistema numera na confirmação (`proximaSenhaNumero`); prévia na tag do resumo; validação sem regex | OpenCode (Muse Spark) |
 | 06/10/2026 | 3.3.0 | MTProto pessoal | 🔶 Teleproto, consentimento, código/2FA e listagem de grupos/supergrupos; testes automatizados OK, autenticação real pendente | GitHub Copilot |
+| 07/10/2026 | 4.0.0 | Fluxo | ✅ Fluxo unificado substituído pelo v3.4.0 do `CHANGELOG.md`: /acesso agora começa por Telefone (retorno por 4 dígitos ou telefone completo +55), código MTProto direto na etapa 2, Grupo vem da conta MTProto, Horário e Confirmação separados | OpenCode |
+
+## ✅ v4.0.0 — Fluxo unificado substituído (07/10/2026)
+
+- O fluxo unificado v2 (acesso por 4 dígitos → confirmar dados → código → grupos → concluído) foi refeito no v3.4.0 do `.docs/LOGS/CHANGELOG.md`.
+- Mudanças principais: código Telegram enviado automaticamente via MTProto na etapa 2 (com reenvio a cada 60s e 2FA condicional); grupos da conta via MTProto em cards; horário com as regras anteriores; confirmação elegante com mensagem editável; cadastro do visitante validado/criado na confirmação.
+- Correção de infra no mesmo dia: `cacert.pem` no PHP do Wamp para disparos via Bot API (cURL error 60) e `/admin` com visão geral em tempo real.
 
 ## ✅ v3.3.0 — Integração MTProto local (06/10/2026)
 

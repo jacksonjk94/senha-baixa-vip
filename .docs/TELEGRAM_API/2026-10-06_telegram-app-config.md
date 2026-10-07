@@ -10,7 +10,7 @@
 | Campo | Valor |
 |---|---|
 | **App api_id** | `39784027` |
-| **App api_hash** | `c70308042703f1bbf6e297338b906124` |
+| **App api_hash** | `c70308042703f1bb6ef297338b906124` |
 | **App title** | `AgendaFacil26` |
 | **Nome curto (short name)** | `agendafacil26` |
 
@@ -74,7 +74,7 @@ hVY9t6h/BY9N0p210g3AoXSL2g/2I3IWUhebgAdGVW1Vf1kuDQoE2zR7EdpqtQD
 
 ```env
 TELEGRAM_API_ID=39784027
-TELEGRAM_API_HASH=c70308042703f1bbf6e297338b906124
+TELEGRAM_API_HASH=c70308042703f1bb6ef297338b906124
 TELEGRAM_APP_TITLE=AgendaFacil26
 TELEGRAM_APP_SHORT_NAME=agendafacil26
 ```

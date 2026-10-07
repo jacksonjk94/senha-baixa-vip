@@ -60,7 +60,7 @@
                         @foreach ($atribuiveis as $papel)<option value="{{ $papel }}">{{ $papel }}</option>@endforeach
                     </select>
                 </div>
-                <div><label class="form-label fw-semibold">Telefone</label><div class="input-group"><span class="input-group-text">+55</span><input name="telefone" class="form-control" maxlength="30" placeholder="(13) 98138-8690"></div></div>
+                <div><label class="form-label fw-semibold">Telefone</label><div class="input-group"><span class="input-group-text">+55</span><input name="telefone" class="form-control" maxlength="30" placeholder="(11) 90000-0000"></div></div>
                 @if ($podeGerenciarPares)
                     <div class="form-check"><input type="checkbox" name="can_manage_admins" value="1" class="form-check-input" id="novoCanAdmin"><label class="form-check-label" for="novoCanAdmin">Pode gerenciar admins (<code>can_manage_admins</code>)</label></div>
                 @endif

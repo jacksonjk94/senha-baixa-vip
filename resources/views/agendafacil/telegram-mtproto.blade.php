@@ -4,7 +4,7 @@
 @section('conteudo')
 <div class="card card-telegram">
     <div class="card-body p-4">
-        <p class="text-uppercase fw-bold small mb-1" style="color:#0B6B4F;letter-spacing:.04em">Autorização da conta</p>
+        <p class="text-uppercase fw-bold small mb-1" style="color:#1D4ED8;letter-spacing:.04em">Autorização da conta</p>
         <h1 class="h4 mb-2">Conectar ao Telegram</h1>
         <p class="text-muted">Conta identificada: <strong>{{ $usuario->name }}</strong>{{ $usuario->telegram_username ? ' · @'.$usuario->telegram_username : '' }}</p>
 
@@ -47,7 +47,7 @@
                 <button type="submit" class="btn-telegram mt-3">Validar e listar grupos</button>
             </form>
         @else
-            <div class="border rounded p-3 mb-3" style="background:#F8FBFD">
+            <div class="border rounded p-3 mb-3" style="background:#F8FAFC">
                 <p class="fw-semibold mb-2">O que será acessado</p>
                 <p class="small mb-0">A autorização será usada somente para ler a lista de grupos e supergrupos da conta, confirmar a identidade e associar esses chats ao cadastro. O sistema não lerá mensagens nem enviará mensagens pela sua conta.</p>
             </div>

@@ -10,89 +10,65 @@ use Illuminate\Http\Request;
 class GrupoController extends Controller
 {
     /**
-    * Etapa 4 — Lista os grupos ativos vinculados ao visitante e confirma
-    * qual receberá o disparo. Exige validação pelo Login Widget Telegram.
+    * Etapa 4 — Lista os grupos e supergrupos da conta Telegram do
+    * visitante (vindos da autorização MTProto) para seleção.
      */
     public function selecionar(Request $request)
     {
-        $visitante = $this->visitanteAtual($request);
-
-        if (! $visitante) {
-            return redirect()->route('agendafacil.acesso');
-        }
-
         if (! $request->session()->get('agendafacil.telegram_ok')) {
             return redirect()->route('agendafacil.codigo');
         }
 
-        $agendamento = $this->agendamentoAtual($request, $visitante);
-        $grupo = $agendamento?->grupo;
+        if (! is_array($request->session()->get('agendafacil.rascunho'))) {
+            return redirect()->route('agendafacil.horario');
+        }
 
-        $grupos = GrupoTelegram::where('usuario_id', $visitante->id)
-            ->ativos()
-            ->ordenados()
-            ->get();
+        $grupos = collect($request->session()->get('agendafacil.telegram_grupos', []))
+            ->filter(fn ($grupo) => is_array($grupo)
+                && in_array($grupo['tipo'] ?? null, ['group', 'supergroup'], true))
+            ->values();
 
         if ($grupos->isEmpty()) {
             return redirect()
-                ->route('agendafacil.confirmar-dados')
-                ->with('aviso', 'Nenhum grupo ativo vinculado ao seu usuário. Verifique os grupos cadastrados.');
+                ->route('agendafacil.horario')
+                ->with('aviso', 'Nenhum grupo ou supergrupo encontrado nesta conta do Telegram.');
         }
 
         return view('agendafacil.selecionar-grupo', [
             'grupos' => $grupos,
-            'grupo' => $grupo,
-            'agendamento' => $agendamento,
+            'grupo' => $request->session()->get('agendafacil.grupo'),
         ]);
     }
 
     /**
-     * Confirma o grupo exibido e conclui o fluxo (etapa 5).
+     * Confirma o grupo escolhido e segue para a confirmação dos dados.
      */
     public function confirmar(Request $request)
     {
-        $visitante = $this->visitanteAtual($request);
-
-        if (! $visitante) {
-            return redirect()->route('agendafacil.acesso');
-        }
-
         if (! $request->session()->get('agendafacil.telegram_ok')) {
             return redirect()->route('agendafacil.codigo');
         }
 
-        $agendamento = $this->agendamentoAtual($request, $visitante);
-
         $dados = $request->validate([
-            'grupo_id' => ['required', 'exists:grupo_telegrams,id'],
+            'chat_id' => ['required', 'string'],
         ], [
-            'grupo_id.required' => 'Confirme o grupo para continuar.',
-            'grupo_id.exists' => 'Grupo selecionado inválido.',
+            'chat_id.required' => 'Confirme o grupo para continuar.',
         ]);
 
-        $grupo = GrupoTelegram::where('id', $dados['grupo_id'])
-            ->where('usuario_id', $visitante->id)
-            ->ativos()
-            ->firstOrFail();
+        $grupo = collect($request->session()->get('agendafacil.telegram_grupos', []))
+            ->first(fn ($g) => is_array($g) && (string) ($g['chat_id'] ?? '') === $dados['chat_id']);
 
-        if ($agendamento) {
-            $agendamento->update([
-                'grupo_telegram_id' => $grupo->id,
-                'destino_tipo' => Agendamento::DESTINO_GRUPO,
-                'destino_id' => (string) $grupo->chat_id,
-                'destino_nome' => $grupo->nome,
-            ]);
+        if (! $grupo) {
+            return back()->withErrors(['chat_id' => 'Grupo selecionado inválido.']);
         }
 
         $request->session()->put('agendafacil.grupo', [
-            'destino_tipo' => 'grupo',
-            'grupo_id' => $grupo->id,
-            'destino_id' => $grupo->chat_id,
-            'destino_nome' => $grupo->nome,
+            'chat_id' => (string) $grupo['chat_id'],
+            'nome' => (string) $grupo['nome'],
+            'tipo' => (string) ($grupo['tipo'] ?? 'group'),
         ]);
-        $request->session()->put('agendafacil.grupo_ok', true);
 
-        return redirect()->route('agendafacil.concluido');
+        return redirect()->route('agendafacil.confirmar-dados');
     }
 
     /**

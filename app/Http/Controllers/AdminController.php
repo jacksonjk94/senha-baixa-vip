@@ -29,6 +29,26 @@ class AdminController extends Controller
     }
 
     /**
+     * Dados da visão geral em JSON (atualização em tempo real).
+     */
+    public function dados()
+    {
+        return response()->json([
+            'total' => Agendamento::count(),
+            'enviados' => Agendamento::where('status', Agendamento::STATUS_ENVIADO)->count(),
+            'pendentes' => Agendamento::where('status', Agendamento::STATUS_PENDENTE)->count(),
+            'erros' => Agendamento::where('status', Agendamento::STATUS_ERRO)->count(),
+            'recentes' => Agendamento::with(['user', 'grupo'])->latest()->limit(10)->get()->map(fn (Agendamento $a) => [
+                'visitante' => $a->nome_visitante ?? $a->texto,
+                'codigo' => $a->senha_codigo ?? ('pos. ' . ($a->posicao ?? '—')),
+                'destino' => $a->destino_nome,
+                'envio' => $a->data_hora_envio?->format('d/m H:i'),
+                'status' => $a->status,
+            ]),
+        ]);
+    }
+
+    /**
      * Cadastros: somente visitantes (role user).
      */
     public function cadastros(Request $request)
@@ -262,6 +282,19 @@ class AdminController extends Controller
             'telegramConfigurado' => $telegram->configurado(),
             'gruposApi' => $telegram->configurado() ? $telegram->listarGrupos() : [],
         ]);
+    }
+
+    /**
+     * Dados da tabela de grupos (sem chamar a API do Telegram) para polling.
+     */
+    public function dadosGrupos()
+    {
+        $grupos = GrupoTelegram::with('usuario')
+            ->orderBy('ordem')
+            ->orderBy('nome')
+            ->paginate(15);
+
+        return view('admin.partials.grupos_rows', compact('grupos'));
     }
 
     public function armazenarGrupo(Request $request)

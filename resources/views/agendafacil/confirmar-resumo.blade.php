@@ -12,10 +12,10 @@
 
 <div class="card card-telegram">
     <div class="card-body p-4">
-        <p class="text-uppercase fw-bold small mb-1" style="color:#0B6B4F;letter-spacing:.04em">Login Telegram</p>
+        <p class="text-uppercase fw-bold small mb-1" style="color:#1D4ED8;letter-spacing:.04em">Login Telegram</p>
         <h1 class="h4 mb-3">✅ Confirme seu agendamento</h1>
 
-        <div class="border rounded p-3 mb-3" style="border-color:#D8ECF7;background:#F8FBFD">
+        <div class="border rounded p-3 mb-3" style="border-color:#E2E8F0;background:#F8FAFC">
             <p class="text-muted small mb-0">Grupo</p>
             <p class="fw-bold mb-2">{{ $grupo->nome }} ({{ $grupo->ehFechado() ? 'Fechado' : 'Aberto' }})</p>
 
