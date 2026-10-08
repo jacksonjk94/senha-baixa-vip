@@ -20,7 +20,17 @@
         <input type="time" name="disparo_horario" class="form-control" value="{{ $horario }}" required>
         <small class="text-muted">Sugerido como hora padrão na tela de agendamento.</small>
     </div>
-    <div><button class="btn btn-primary">Salvar configurações</button></div>
+    <div>
+        <label class="form-label fw-semibold">Modo do fluxo de agendamento *</label>
+        <select name="agendamento_modo" class="form-select" required>
+            <option value="producao" @selected($modoFluxo === 'producao')>Produção — validações e autenticação reais via Telegram</option>
+            <option value="teste" @selected($modoFluxo === 'teste')>Teste — permite percorrer as etapas sem Telegram; nenhum dado é gravado</option>
+        </select>
+        <small class="text-muted">No modo teste, o código pode ser qualquer número, os grupos são fictícios e nada é salvo no final.</small>
+    </div>
+    <div>
+        <button class="btn btn-primary">Salvar configurações</button>
+    </div>
 </form>
 </div></div>
 

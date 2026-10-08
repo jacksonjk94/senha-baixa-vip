@@ -113,7 +113,12 @@ class AcessoController extends Controller
         $expirado = $enviadoEm > 0 && (time() - $enviadoEm) > 600;
         $erroEnvio = null;
 
-        if (! $operationId || $expirado) {
+        if (\App\Models\Configuracao::modoFluxoAgendamento() === 'teste') {
+            if (! $enviadoEm) {
+                $enviadoEm = time();
+                $request->session()->put('agendafacil.codigo_enviado_em', $enviadoEm);
+            }
+        } elseif (! $operationId || $expirado) {
             try {
                 $resposta = $telegramMtproto->enviarCodigo($telefone);
                 $request->session()->put('agendafacil.mtproto_operation_id', $resposta['operationId'] ?? null);
@@ -153,6 +158,12 @@ class AcessoController extends Controller
                 ->with('aviso', 'Aguarde alguns segundos antes de reenviar.');
         }
 
+        if (\App\Models\Configuracao::modoFluxoAgendamento() === 'teste') {
+            $request->session()->put('agendafacil.codigo_enviado_em', time());
+
+            return redirect()->route('agendafacil.codigo')->with('sucesso', 'Novo código enviado (modo teste).');
+        }
+
         try {
             $resposta = $telegramMtproto->enviarCodigo($telefone);
             $request->session()->put('agendafacil.mtproto_operation_id', $resposta['operationId'] ?? null);
@@ -186,6 +197,23 @@ class AcessoController extends Controller
         ], [
             'codigo.regex' => 'Informe o código numérico recebido do Telegram.',
         ]);
+
+        if (\App\Models\Configuracao::modoFluxoAgendamento() === 'teste') {
+            $request->session()->forget(['agendafacil.mtproto_operation_id', 'agendafacil.needs_password']);
+            $request->session()->put('agendafacil.telegram_ok', true);
+            $request->session()->put('agendafacil.acesso_em', time());
+            $request->session()->put('agendafacil.telegram_user', [
+                'id' => '0',
+                'username' => 'usuario_teste',
+                'firstName' => 'Usuário Teste',
+            ]);
+            $request->session()->put('agendafacil.telegram_grupos', [
+                ['chat_id' => '-1001000000001', 'nome' => 'Grupo de Teste', 'tipo' => 'group'],
+                ['chat_id' => '-1001000000002', 'nome' => 'Supergrupo de Teste', 'tipo' => 'supergroup'],
+            ]);
+
+            return redirect()->route('agendafacil.horario');
+        }
 
         try {
             $resultado = $telegramMtproto->verificarCodigo(
@@ -326,6 +354,17 @@ class AcessoController extends Controller
         $telefone = (string) $request->session()->get('agendafacil.telefone');
         $nome = trim((string) ($telegramUser['firstName'] ?? 'Visitante'));
 
+        if (\App\Models\Configuracao::modoFluxoAgendamento() === 'teste') {
+            $dataHora = \Carbon\Carbon::parse($rascunho['data_envio'] . ' ' . $rascunho['hora_envio']);
+            $request->session()->put('agendafacil.agendamento_teste', [
+                'destino_nome' => $grupoSel['nome'] ?? 'Grupo de Teste',
+                'data_hora_envio' => $dataHora->toDateTimeString(),
+                'mensagem' => trim($dados['mensagem']),
+            ]);
+
+            return redirect()->route('agendafacil.concluido');
+        }
+
         $usuario = User::where('telegram_id', $telegramId)->first()
             ?? User::where('telefone', $telefone)->first()
             ?? User::where('telefone', 'like', '%' . substr((string) preg_replace('/\D/', '', $telefone), -8))->first();
@@ -443,6 +482,17 @@ class AcessoController extends Controller
     {
         $agendamentoId = $request->session()->get('agendafacil.agendamento_id');
         $agendamento = $agendamentoId ? Agendamento::find($agendamentoId) : null;
+
+        if (! $agendamento && \App\Models\Configuracao::modoFluxoAgendamento() === 'teste') {
+            $teste = $request->session()->get('agendafacil.agendamento_teste');
+            if (is_array($teste)) {
+                $agendamento = new Agendamento([
+                    'destino_nome' => $teste['destino_nome'] ?? 'Grupo de Teste',
+                    'data_hora_envio' => $teste['data_hora_envio'] ?? null,
+                    'texto' => $teste['mensagem'] ?? null,
+                ]);
+            }
+        }
 
         return view('agendafacil.concluido-unificado', compact('agendamento'));
     }

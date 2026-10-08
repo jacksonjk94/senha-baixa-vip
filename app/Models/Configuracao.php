@@ -21,6 +21,8 @@ class Configuracao extends Model
 
     public const DISPARO_HORARIO = 'disparo_horario'; // H:i
 
+    public const AGENDAMENTO_MODO = 'agendamento_modo'; // producao|teste
+
     /**
      * Lê uma configuração (com defaults sensatos).
      */
@@ -43,6 +45,11 @@ class Configuracao extends Model
     public static function modoDisparo(): string
     {
         return static::get(static::DISPARO_MODO, 'agendado') === 'imediato' ? 'imediato' : 'agendado';
+    }
+
+    public static function modoFluxoAgendamento(): string
+    {
+        return static::get(static::AGENDAMENTO_MODO, 'producao') === 'teste' ? 'teste' : 'producao';
     }
 
     public static function horarioDisparo(): string

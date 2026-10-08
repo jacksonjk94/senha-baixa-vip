@@ -67,6 +67,9 @@
 </header>
 
 <main class="tg-container">
+    @if (\App\Models\Configuracao::modoFluxoAgendamento() === 'teste')
+        <div class="alert alert-warning mt-3 mb-0 text-center fw-semibold">🧪 MODO TESTE ativo — nenhuma autenticação do Telegram é exigida e nenhum dado é gravado.</div>
+    @endif
     @if (session('sucesso'))
         <div class="alert alert-success mt-3">{{ session('sucesso') }}</div>
     @endif
