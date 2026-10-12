@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Agendamento;
-use App\Services\TelegramBotService;
+use App\Services\TelegramDisparoService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -15,7 +15,7 @@ class EnviarSenhaTelegram implements ShouldQueue
     {
     }
 
-    public function handle(TelegramBotService $telegram): void
+    public function handle(TelegramDisparoService $disparo): void
     {
         $agendamento = Agendamento::find($this->agendamentoId);
 
@@ -23,10 +23,7 @@ class EnviarSenhaTelegram implements ShouldQueue
             return;
         }
 
-        $resultado = $telegram->enviarMensagem(
-            (string) $agendamento->destino_id,
-            $agendamento->textoMensagem()
-        );
+        $resultado = $disparo->enviar($agendamento);
 
         if ($resultado['ok']) {
             $agendamento->marcarComoEnviado();

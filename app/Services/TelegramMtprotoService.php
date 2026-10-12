@@ -30,6 +30,81 @@ class TelegramMtprotoService
         ], fn ($value) => $value !== null));
     }
 
+    /**
+     * Envia mensagem como a conta do usuário (sessão guardada).
+     * Não lança exceção: retorna ['ok'=>bool, 'resposta'=>mixed,
+     * 'sessao_invalida'=>bool]. Com sessão revogada, o chamador deve limpar
+     * a sessão guardada e orientar nova autorização.
+     */
+    public function enviarMensagemPorSessao(string $session, string $chatId, string $texto): array
+    {
+        if (! $this->configurado()) {
+            return ['ok' => false, 'resposta' => 'A integração MTProto não está configurada neste ambiente.', 'sessao_invalida' => false];
+        }
+
+        if (trim($session) === '' || trim($chatId) === '' || trim($texto) === '') {
+            return ['ok' => false, 'resposta' => 'Sessão, destino ou texto ausente para o envio via MTProto.', 'sessao_invalida' => trim($session) === ''];
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->asJson()
+                ->withToken((string) config('services.telegram_mtproto.service_token'))
+                ->timeout(45)
+                ->post(rtrim((string) config('services.telegram_mtproto.url'), '/') . '/v1/messages/send', [
+                    'session' => $session,
+                    'chatId' => trim($chatId),
+                    'message' => $texto,
+                ]);
+        } catch (ConnectionException) {
+            return ['ok' => false, 'resposta' => 'O serviço local de conexão Telegram não está disponível.', 'sessao_invalida' => false];
+        }
+
+        $dados = $response->json();
+
+        if ($response->successful() && ($dados['ok'] ?? false)) {
+            return ['ok' => true, 'resposta' => $dados, 'sessao_invalida' => false];
+        }
+
+        $sessaoInvalida = $response->status() === 401
+            || (is_array($dados) && ($dados['sessionInvalid'] ?? false) === true);
+
+        $mensagem = is_array($dados) && filled($dados['message'] ?? null)
+            ? (string) $dados['message']
+            : 'Falha no envio via MTProto (HTTP ' . $response->status() . ')';
+
+        \Illuminate\Support\Facades\Log::warning('MTProto envio falhou', [
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ]);
+
+        return ['ok' => false, 'resposta' => $mensagem, 'sessao_invalida' => $sessaoInvalida];
+    }
+
+    /**
+     * Encerra a sessão guardada também no Telegram (logout remoto).
+     */
+    public function encerrarSessao(string $session): bool
+    {
+        if (! $this->configurado() || trim($session) === '') {
+            return false;
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->asJson()
+                ->withToken((string) config('services.telegram_mtproto.service_token'))
+                ->timeout(30)
+                ->post(rtrim((string) config('services.telegram_mtproto.url'), '/') . '/v1/auth/logout', [
+                    'session' => $session,
+                ]);
+
+            return $response->successful();
+        } catch (ConnectionException) {
+            return false;
+        }
+    }
+
     private function post(string $path, array $payload): array
     {
         if (! $this->configurado()) {

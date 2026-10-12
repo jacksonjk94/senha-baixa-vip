@@ -81,6 +81,50 @@ class TelegramBotService
     }
 
     /**
+     * Verifica se o bot enxerga o chat (getChat). Útil para diagnosticar
+     * "chat not found": bot fora do grupo, chat_id antigo (grupo migrado
+     * para supergrupo muda o id) ou token/bot trocado.
+     *
+     * @return array{ok: bool, nome: ?string, tipo: ?string, erro: ?string}
+     */
+    public function verificarChat(string $chatId): array
+    {
+        $chatId = trim($chatId);
+
+        if (! $this->configurado()) {
+            return ['ok' => false, 'nome' => null, 'tipo' => null, 'erro' => 'TELEGRAM_TOKEN não configurado'];
+        }
+
+        if ($chatId === '') {
+            return ['ok' => false, 'nome' => null, 'tipo' => null, 'erro' => 'chat_id vazio'];
+        }
+
+        try {
+            $response = Http::timeout(10)->get("{$this->apiBase}/getChat", ['chat_id' => $chatId]);
+
+            if ($response->successful() && ($response->json('ok') ?? false)) {
+                $result = $response->json('result', []);
+
+                return [
+                    'ok' => true,
+                    'nome' => $result['title'] ?? ($result['username'] ?? null),
+                    'tipo' => $result['type'] ?? null,
+                    'erro' => null,
+                ];
+            }
+
+            return [
+                'ok' => false,
+                'nome' => null,
+                'tipo' => null,
+                'erro' => $response->body() ?: 'Chat não encontrado pelo bot',
+            ];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'nome' => null, 'tipo' => null, 'erro' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Valida o token via getMe. Retorna ['ok'=>bool,'nome'=>?string,'erro'=>?string].
      */
     public function testarConexao(): array
@@ -210,6 +254,240 @@ class TelegramBotService
 
             return [];
         }
+    }
+
+    /**
+     * File_id da maior foto de perfil do usuário (ou null se não houver /
+     * bot não tiver acesso). Usa getUserProfilePhotos da Bot API.
+     */
+    public function fotoPerfilFileId(string $telegramUserId): ?string
+    {
+        if (! $this->configurado() || trim($telegramUserId) === '') {
+            return null;
+        }
+
+        $cacheKey = 'tg:foto_perfil_file_id:' . trim($telegramUserId);
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addHours(6), function () use ($telegramUserId) {
+            try {
+                $response = Http::timeout(10)->get("{$this->apiBase}/getUserProfilePhotos", [
+                    'user_id' => trim($telegramUserId),
+                    'limit' => 1,
+                ]);
+
+                if (! $response->successful() || ! ($response->json('ok') ?? false)) {
+                    return null;
+                }
+
+                $fotos = $response->json('result.photos', []);
+                $maior = $fotos[0] ?? null;
+
+                if (! is_array($maior) || empty($maior)) {
+                    return null;
+                }
+
+                $ultimo = end($maior);
+
+                return is_array($ultimo) ? ($ultimo['file_id'] ?? null) : null;
+            } catch (\Throwable $e) {
+                Log::warning('Falha ao buscar foto de perfil Telegram', ['erro' => $e->getMessage()]);
+
+                return null;
+            }
+        });
+    }
+
+    /**
+     * File_id da foto do grupo/canal (ou null se o bot não for membro ou
+     * não houver foto). Usa getChat da Bot API.
+     */
+    public function fotoChatFileId(string $chatId): ?string
+    {
+        if (! $this->configurado() || trim($chatId) === '') {
+            return null;
+        }
+
+        $cacheKey = 'tg:foto_chat_file_id:' . md5(trim($chatId));
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addHours(6), function () use ($chatId) {
+            try {
+                $response = Http::timeout(10)->get("{$this->apiBase}/getChat", [
+                    'chat_id' => trim($chatId),
+                ]);
+
+                if (! $response->successful() || ! ($response->json('ok') ?? false)) {
+                    return null;
+                }
+
+                $foto = $response->json('result.photo', []);
+
+                if (! is_array($foto)) {
+                    return null;
+                }
+
+                return $foto['big_file_id'] ?? $foto['small_file_id'] ?? null;
+            } catch (\Throwable $e) {
+                Log::warning('Falha ao buscar foto do chat Telegram', ['erro' => $e->getMessage()]);
+
+                return null;
+            }
+        });
+    }
+
+    /**
+     * Baixa os bytes de um file_id da Bot API (via getFile + download).
+     *
+     * @return array{bytes: string, content_type: string}|null
+     */
+    public function baixarArquivoPorFileId(string $fileId): ?array
+    {
+        if (! $this->configurado() || trim($fileId) === '') {
+            return null;
+        }
+
+        try {
+            $resposta = Http::timeout(10)->get("{$this->apiBase}/getFile", [
+                'file_id' => trim($fileId),
+            ]);
+
+            if (! $resposta->successful() || ! ($resposta->json('ok') ?? false)) {
+                return null;
+            }
+
+            $filePath = (string) ($resposta->json('result.file_path') ?? '');
+
+            if ($filePath === '') {
+                return null;
+            }
+
+            return $this->baixarArquivoPorPath($filePath);
+        } catch (\Throwable $e) {
+            Log::warning('Falha ao baixar arquivo do Telegram', ['erro' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @return array{bytes: string, content_type: string}|null
+     */
+    protected function baixarArquivoPorPath(string $filePath): ?array
+    {
+        $url = 'https://api.telegram.org/file/bot' . $this->token . '/' . ltrim($filePath, '/');
+
+        try {
+            $resposta = Http::timeout(15)->get($url);
+
+            if (! $resposta->successful() || $resposta->body() === '') {
+                return null;
+            }
+
+            $contentType = (string) ($resposta->header('Content-Type') ?: '');
+
+            if (! str_starts_with($contentType, 'image/')) {
+                $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+                $contentType = match ($ext) {
+                    'png' => 'image/png',
+                    'webp' => 'image/webp',
+                    default => 'image/jpeg',
+                };
+            }
+
+            return ['bytes' => $resposta->body(), 'content_type' => $contentType];
+        } catch (\Throwable $e) {
+            Log::warning('Falha ao baixar foto do Telegram', ['erro' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Bytes da foto de perfil do usuário, com cache em disco (24h).
+     *
+     * @return array{bytes: string, content_type: string}|null
+     */
+    public function baixarFotoPerfilUsuario(string $telegramUserId): ?array
+    {
+        $telegramUserId = trim($telegramUserId);
+
+        if ($telegramUserId === '') {
+            return null;
+        }
+
+        return $this->baixarComCacheDisco(
+            'usuario_' . preg_replace('/[^0-9A-Za-z_-]/', '', $telegramUserId),
+            fn () => ($fileId = $this->fotoPerfilFileId($telegramUserId))
+                ? $this->baixarArquivoPorFileId($fileId)
+                : null
+        );
+    }
+
+    /**
+     * Bytes da foto do grupo, com cache em disco (24h).
+     *
+     * @return array{bytes: string, content_type: string}|null
+     */
+    public function baixarFotoChat(string $chatId): ?array
+    {
+        $chatId = trim($chatId);
+
+        if ($chatId === '') {
+            return null;
+        }
+
+        return $this->baixarComCacheDisco(
+            'grupo_' . md5($chatId),
+            fn () => ($fileId = $this->fotoChatFileId($chatId))
+                ? $this->baixarArquivoPorFileId($fileId)
+                : null
+        );
+    }
+
+    /**
+     * Cache simples em storage/app/telegram-fotos para não hitar a Bot API
+     * a cada carregamento de página.
+     *
+     * @param callable(): ?array{bytes: string, content_type: string} $buscar
+     * @return array{bytes: string, content_type: string}|null
+     */
+    protected function baixarComCacheDisco(string $chave, callable $buscar): ?array
+    {
+        $dir = storage_path('app/telegram-fotos');
+
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+
+        $base = $dir . DIRECTORY_SEPARATOR . $chave;
+        $ttl = 86400;
+
+        if (is_file($base . '.bin') && (time() - (int) @filemtime($base . '.bin')) < $ttl) {
+            $bytes = @file_get_contents($base . '.bin');
+
+            if (is_string($bytes) && $bytes !== '') {
+                $meta = is_file($base . '.json')
+                    ? json_decode((string) @file_get_contents($base . '.json'), true)
+                    : null;
+
+                return [
+                    'bytes' => $bytes,
+                    'content_type' => is_array($meta) && filled($meta['content_type'] ?? null)
+                        ? (string) $meta['content_type']
+                        : 'image/jpeg',
+                ];
+            }
+        }
+
+        $resultado = $buscar();
+
+        if (! is_array($resultado) || empty($resultado['bytes'])) {
+            return null;
+        }
+
+        @file_put_contents($base . '.bin', $resultado['bytes']);
+        @file_put_contents($base . '.json', json_encode(['content_type' => $resultado['content_type'] ?? 'image/jpeg']));
+
+        return $resultado;
     }
 
     /**

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agendamento;
-use App\Services\TelegramBotService;
+use App\Services\TelegramDisparoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,8 +13,9 @@ use Illuminate\Http\Request;
  * O n8n chama `GET /api/n8n/disparos/processar` a cada minuto
  * (cron `* * * * *`, timezone America/Sao_Paulo) com o cabeçalho
  * `X-N8N-Secret: {N8N_WORKER_SECRET}`. A rota busca os agendamentos
- * pendentes com horário atingido, envia via Telegram Bot API e atualiza
- * os status, devolvendo um JSON-resumo para o monitoramento do n8n.
+ * pendentes com horário atingido, envia (sessão MTProto da conta ou,
+ * sem sessão, bot do sistema) e atualiza os status, devolvendo um
+ * JSON-resumo para o monitoramento do n8n.
  *
  * Instruções completas de configuração do n8n em:
  * `.docs/INSTRUCOES/n8n-disparos-cron.md`
@@ -25,7 +26,7 @@ use Illuminate\Http\Request;
  */
 class N8nDisparoController extends Controller
 {
-    public function processar(Request $request, TelegramBotService $telegram): JsonResponse
+    public function processar(Request $request, TelegramDisparoService $disparo): JsonResponse
     {
         // 🔒 Autorização por chave secreta (comparação em tempo constante;
         // sem segredo configurado, nega tudo — fail closed).
@@ -76,10 +77,9 @@ class N8nDisparoController extends Controller
                 }
             }
 
-            $envio = $telegram->enviarMensagem(
-                (string) $grupo->chat_id,
-                $agendamento->textoMensagem()
-            );
+            // Envia pela sessão MTProto da conta (ou bot, sem sessão).
+            // O serviço resolve o chat_id vivo e o prefixa no erro.
+            $envio = $disparo->enviar($agendamento);
 
             if ($envio['ok']) {
                 // Posição recalculada no envio (exclui o próprio registro).

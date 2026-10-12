@@ -16,9 +16,10 @@ test('groupsFromDialogs keeps basic groups and supergroups only', () => {
     ]);
 });
 
-test('authenticates the internal API and completes a user login without persisting a session', async (context) => {
+test('authenticates the internal API and completes a user login keeping the session', async (context) => {
     let loggedOut = false;
     const fakeClient = {
+        session: { save: () => 'sessao-string-persistente' },
         async connect() {},
         async sendCode() {
             return { phoneCodeHash: 'hash-from-telegram', isCodeViaApp: true };
@@ -78,13 +79,15 @@ test('authenticates the internal API and completes a user login without persisti
     assert.deepEqual(await completed.json(), {
         user: { id: '123456', username: 'maria', firstName: 'Maria' },
         groups: [{ chat_id: '-20', nome: 'Grupo de teste', tipo: 'group' }],
+        session: 'sessao-string-persistente',
     });
-    assert.equal(loggedOut, true);
+    assert.equal(loggedOut, false);
 });
 
 test('keeps a login challenge alive for a second-factor password', async (context) => {
     let passwordAccepted = false;
     const fakeClient = {
+        session: { save: () => 'sessao-2fa' },
         async connect() {},
         async sendCode() {
             return { phoneCodeHash: 'hash-from-telegram', isCodeViaApp: false };
@@ -147,4 +150,105 @@ test('keeps a login challenge alive for a second-factor password', async (contex
     });
     assert.equal(completed.status, 200);
     assert.equal(passwordAccepted, true);
+    assert.equal((await completed.json()).session, 'sessao-2fa');
+});
+
+async function startTestServer(context, fakeClient) {
+    const server = createTelegramMtprotoServer({
+        apiId: 123,
+        apiHash: 'test-hash',
+        serviceToken: 'internal-test-token',
+        clientFactory: () => fakeClient,
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    context.after(() => new Promise((resolve) => server.close(resolve)));
+    return {
+        baseUrl: `http://127.0.0.1:${server.address().port}`,
+        headers: { authorization: 'Bearer internal-test-token', 'content-type': 'application/json' },
+    };
+}
+
+test('sends a message using a stored session', async (context) => {
+    let sentTo = null;
+    const fakeClient = {
+        async connect() {},
+        async getEntity(id) {
+            sentTo = id;
+            return { id };
+        },
+        async sendMessage(_entity, { message }) {
+            assert.equal(message, 'Olá grupo');
+            return { id: 42 };
+        },
+        async disconnect() {},
+    };
+    const { baseUrl, headers } = await startTestServer(context, fakeClient);
+
+    const response = await fetch(`${baseUrl}/v1/messages/send`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session: 'sessao-valida', chatId: '-5552808073', message: 'Olá grupo' }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true, messageId: 42 });
+    assert.equal(sentTo, -5552808073);
+});
+
+test('rejects sending without a session', async (context) => {
+    const fakeClient = {
+        async connect() { throw new Error('should not connect'); },
+        async disconnect() {},
+    };
+    const { baseUrl, headers } = await startTestServer(context, fakeClient);
+
+    const response = await fetch(`${baseUrl}/v1/messages/send`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session: '', chatId: '-1', message: 'Oi' }),
+    });
+    assert.equal(response.status, 422);
+    assert.equal((await response.json()).sessionInvalid, true);
+});
+
+test('maps revoked sessions to 401 with sessionInvalid', async (context) => {
+    const fakeClient = {
+        async connect() {},
+        async getEntity() {
+            const error = new Error('revoked');
+            error.errorMessage = 'SESSION_REVOKED';
+            throw error;
+        },
+        async disconnect() {},
+    };
+    const { baseUrl, headers } = await startTestServer(context, fakeClient);
+
+    const response = await fetch(`${baseUrl}/v1/messages/send`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session: 'sessao-revogada', chatId: '-1', message: 'Oi' }),
+    });
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).sessionInvalid, true);
+});
+
+test('logs out a stored session', async (context) => {
+    let loggedOut = false;
+    const fakeClient = {
+        async connect() {},
+        async logOut() {
+            loggedOut = true;
+            return true;
+        },
+        async disconnect() {},
+    };
+    const { baseUrl, headers } = await startTestServer(context, fakeClient);
+
+    const response = await fetch(`${baseUrl}/v1/auth/logout`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session: 'sessao-antiga' }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true });
+    assert.equal(loggedOut, true);
 });

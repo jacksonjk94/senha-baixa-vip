@@ -1,0 +1,27 @@
+# AgendaFácil — disparos-cron (worker que chama o Laravel a cada minuto)
+# Deploy na VPS Hostinger:
+#   1. Copie esta pasta para a VPS (ex.: /opt/agenda-facil/disparos-cron)
+#   2. Copie .env.example para .env e preencha os valores reais
+#   3. docker compose up -d --build
+#   4. docker compose logs -f  (confira as linhas "200 {...}" a cada minuto)
+
+services:
+  disparos-cron:
+    build: .
+    container_name: agenda-disparos-cron
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # URL pública do Laravel (sem barra no final).
+      # Ex.: https://agenda.seudominio.com.br
+      DISPAROS_CRON_URL: ${DISPAROS_CRON_URL:-http://127.0.0.1:8000}
+      # Mesma chave do N8N_WORKER_SECRET do .env do Laravel.
+      # Sem ela a rota responde 403 fail-closed.
+      N8N_WORKER_SECRET: ${N8N_WORKER_SECRET:?defina N8N_WORKER_SECRET no .env}
+      TZ: ${TZ:-America/Sao_Paulo}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

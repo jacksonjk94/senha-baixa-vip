@@ -7,7 +7,16 @@
 <div class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm border border-slate-100 px-6 md:px-8 py-8">
     <p class="text-xs font-bold tracking-wider uppercase text-blue-700 mb-1">Login Telegram</p>
     <h1 class="text-2xl font-bold text-slate-800 mb-1">Confirme que é você</h1>
-    <p class="text-slate-500 text-sm md:text-base mb-6">Enviamos um código para o Telegram do número <strong>{{ $telefone }}</strong>.</p>
+    <p class="text-slate-500 text-sm md:text-base mb-4">Enviamos um código para o Telegram do número <strong>{{ $telefone }}</strong>.</p>
+
+    <div class="bg-blue-50 border border-blue-100 text-blue-900 text-sm rounded-xl px-4 py-3 mb-6">
+        <p class="font-semibold mb-1">📲 Abra o seu Telegram agora</p>
+        @if ($viaApp ?? false)
+            <p class="mb-1">1. Se o Telegram perguntar <strong>se é você tentando acessar</strong>, toque em <strong>Confirmar</strong>.</p>
+        @endif
+        <p class="mb-1">2. Digite aqui embaixo o <strong>código</strong> que chegou no seu Telegram.</p>
+        <p class="mb-0">3. Depois de enviar, o Telegram mostra um aviso de novo login (<strong>“É você?”</strong>) — toque em <strong>SIM, SOU EU</strong>.</p>
+    </div>
 
     <div class="mt-4 text-center">
         <a href="{{ route('agendafacil.acesso') }}" class="text-sm text-blue-700 hover:text-blue-900 font-medium transition-colors">← Voltar</a>

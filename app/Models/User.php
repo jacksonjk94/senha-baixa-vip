@@ -47,6 +47,7 @@ class User extends Authenticatable
         'telegram_id',
         'telegram_username',
         'telegram_token',
+        'telegram_mtproto_phone',
         'ultimos_digitos_telefone',
         'telefone',
     ];
@@ -61,6 +62,7 @@ class User extends Authenticatable
         'remember_token',
         'two_factor_recovery_codes',
         'two_factor_secret',
+        'telegram_mtproto_session',
     ];
 
     /**
@@ -84,6 +86,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'active' => 'boolean',
             'can_manage_admins' => 'boolean',
+            'telegram_mtproto_session' => 'encrypted',
+            'telegram_mtproto_conectado_em' => 'datetime',
         ];
     }
 
@@ -155,6 +159,31 @@ class User extends Authenticatable
     public function telegramConectado(): bool
     {
         return filled($this->telegram_id);
+    }
+
+    /**
+     * Sessão MTProto guardada (conta autorizada para disparos como pessoa).
+     */
+    public function mtprotoSessaoValida(): bool
+    {
+        return filled($this->telegram_mtproto_session);
+    }
+
+    public function guardarSessaoMtproto(string $session, ?string $phone = null): void
+    {
+        $this->forceFill([
+            'telegram_mtproto_session' => $session,
+            'telegram_mtproto_phone' => $phone ?? $this->telegram_mtproto_phone,
+            'telegram_mtproto_conectado_em' => now(),
+        ])->save();
+    }
+
+    public function limparSessaoMtproto(): void
+    {
+        $this->forceFill([
+            'telegram_mtproto_session' => null,
+            'telegram_mtproto_conectado_em' => null,
+        ])->save();
     }
 
 }

@@ -10,14 +10,22 @@
 
     <div class="border border-slate-200 rounded-lg p-4 mb-4 bg-slate-50">
             <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold">{{ \Illuminate\Support\Str::substr($telegramUser['firstName'] ?? 'V', 0, 1) }}</div>
+                <span style="position:relative;width:40px;height:40px;flex-shrink:0">
+                    <span class="w-10 h-10 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold" style="position:absolute;inset:0">{{ \Illuminate\Support\Str::substr($telegramUser['firstName'] ?? 'V', 0, 1) }}</span>
+                    <img src="{{ route('telegram.foto.usuario') }}" alt="Foto de perfil" loading="lazy"
+                         style="position:absolute;inset:0;width:100%;height:100%;border-radius:999px;object-fit:cover;background:#E2E8F0" onerror="this.remove()">
+                </span>
                 <div>
                     <p class="font-bold text-slate-800 text-sm leading-tight">{{ $telegramUser['firstName'] ?? 'Visitante' }}</p>
                     <p class="text-slate-500 text-xs">{{ ! empty($telegramUser['username']) ? '@' . $telegramUser['username'] : 'Conta Telegram' }}</p>
                 </div>
             </div>
             <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">{{ \Illuminate\Support\Str::substr($grupo['nome'], 0, 1) }}</div>
+                <span style="position:relative;width:40px;height:40px;flex-shrink:0">
+                    <span class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold" style="position:absolute;inset:0">{{ \Illuminate\Support\Str::substr($grupo['nome'], 0, 1) }}</span>
+                    <img src="{{ route('telegram.foto.grupo', ['chatId' => $grupo['chat_id']]) }}" alt="Foto do grupo {{ $grupo['nome'] }}" loading="lazy"
+                         style="position:absolute;inset:0;width:100%;height:100%;border-radius:999px;object-fit:cover;background:#E2E8F0" onerror="this.remove()">
+                </span>
                 <div>
                     <p class="font-bold text-slate-800 text-sm leading-tight">{{ $grupo['nome'] }}</p>
                     <p class="text-slate-500 text-xs">{{ $grupo['tipo'] === 'supergroup' ? 'Supergrupo' : 'Grupo' }}</p>

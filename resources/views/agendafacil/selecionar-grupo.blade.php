@@ -15,6 +15,11 @@
             <label class="flex gap-2 items-center p-3 w-full mb-2 rounded-lg cursor-pointer border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-200 transition-all duration-200 grupo-opcao">
                 <input type="radio" name="chat_id" value="{{ $g['chat_id'] }}" class="mt-0 accent-blue-900"
                        {{ (string) old('chat_id', $grupo['chat_id'] ?? $grupos->first()['chat_id']) === (string) $g['chat_id'] ? 'checked' : '' }} required>
+                <span style="position:relative;width:40px;height:40px;flex-shrink:0">
+                    <span style="position:absolute;inset:0;border-radius:999px;background:#1E3A8A;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px">{{ \Illuminate\Support\Str::substr($g['nome'], 0, 1) }}</span>
+                    <img src="{{ route('telegram.foto.grupo', ['chatId' => $g['chat_id']]) }}" alt="Foto do grupo {{ $g['nome'] }}" loading="lazy"
+                         style="position:absolute;inset:0;width:100%;height:100%;border-radius:999px;object-fit:cover;background:#E2E8F0" onerror="this.remove()">
+                </span>
                 <span class="flex-grow-1">
                     <span class="font-bold block text-sm text-slate-800">{{ $g['nome'] }}</span>
                     <small class="text-slate-500">{{ $g['tipo'] === 'supergroup' ? 'Supergrupo' : 'Grupo' }}</small>

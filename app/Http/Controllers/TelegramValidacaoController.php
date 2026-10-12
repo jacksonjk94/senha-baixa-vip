@@ -13,10 +13,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Validação da pessoa pelo PRÓPRIO Telegram (Login Widget oficial).
  *
- * Perna independente do robô: o bot do sistema (token fixo) continua sendo
- * o único que envia mensagens. O widget confirma a identidade; a etapa
- * MTProto, quando configurada e consentida, consulta grupos e encerra a
- * autorização sem usá-la para enviar mensagens.
+ * A etapa MTProto, quando configurada e consentida, autoriza a conta e guarda
+ * a sessão (criptografada) para que os disparos saiam como a própria conta.
+ * Sem sessão guardada, o envio segue pelo bot do sistema (token fixo).
  */
 class TelegramValidacaoController extends Controller
 {
@@ -311,6 +310,7 @@ class TelegramValidacaoController extends Controller
 
         $codigo = $telegramMtproto->enviarCodigo($dados['telefone']);
         $estado['operation_id'] = $codigo['operationId'];
+        $estado['telefone'] = $dados['telefone'];
         $estado['is_code_via_app'] = (bool) ($codigo['isCodeViaApp'] ?? false);
         $estado['needs_password'] = false;
         $estado['expira_em'] = time() + 600;
@@ -364,6 +364,16 @@ class TelegramValidacaoController extends Controller
         }
 
         $this->sincronizarGruposMtproto($usuario, $resultado['groups'] ?? []);
+
+        // Guarda a sessão autorizada (criptografada) para disparos futuros
+        // como a própria conta — sem ela, o envio segue via bot do sistema.
+        if (filled($resultado['session'] ?? null)) {
+            $usuario->guardarSessaoMtproto(
+                (string) $resultado['session'],
+                $estado['telefone'] ?? $usuario->telegram_mtproto_phone
+            );
+        }
+
         $grupos = $usuario->gruposTelegram()->ordenados()->get();
         $modo = $estado['modo'];
         $request->session()->forget('agendafacil.mtproto');

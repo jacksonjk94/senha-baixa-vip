@@ -11,6 +11,7 @@ use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\ManualController;
 use App\Http\Controllers\TelegramBotsController;
 use App\Http\Controllers\TelegramController;
+use App\Http\Controllers\TelegramFotoController;
 use App\Http\Controllers\TelegramTesteApiController;
 use App\Http\Controllers\TelegramTesteController;
 use App\Http\Controllers\TelegramValidacaoController;
@@ -83,6 +84,10 @@ Route::post('/telegram/disconnect', [TelegramController::class, 'disconnect'])->
 Route::get('/grupos/selecionar', [GrupoController::class, 'selecionar'])->name('grupos.selecionar');
 Route::post('/grupos/confirmar', [GrupoController::class, 'confirmar'])->name('grupos.confirmar');
 Route::post('/grupos/confirmar-final', [GrupoController::class, 'confirmarGrupoFinal'])->name('grupos.confirmar-final');
+
+// Fotos do fluxo (proxy seguro via Bot API — sem expor token; 404 cai no fallback de iniciais).
+Route::get('/telegram/foto/usuario', [TelegramFotoController::class, 'usuario'])->name('telegram.foto.usuario');
+Route::get('/telegram/foto/grupo/{chatId}', [TelegramFotoController::class, 'grupo'])->where('chatId', '.*')->name('telegram.foto.grupo');
 
 Route::get('/painel', [AgendamentoController::class, 'index'])->name('dashboard.painel');
 Route::get('/agendamento/novo', [AgendamentoController::class, 'create'])->name('agendamento.novo');

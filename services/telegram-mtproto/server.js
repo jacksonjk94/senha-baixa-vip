@@ -99,6 +99,32 @@ function formatarDuracao(totalSegundos) {
     return partes.join(', ');
 }
 
+function sendErrorResponse(error) {
+    const code = error?.errorMessage ?? '';
+    if (['SESSION_REVOKED', 'AUTH_KEY_UNREGISTERED', 'AUTH_KEY_INVALID', 'USER_DEACTIVATED', 'AUTH_KEY_DUPLICATED'].includes(code)) {
+        return [401, 'A sessão do Telegram expirou ou foi encerrada em outro aparelho. Autorize a conta novamente.', true];
+    }
+    if (typeof code === 'string' && (code.startsWith('FLOOD_WAIT') || code.startsWith('FLOOD_PREMIUM_WAIT'))) {
+        const segundos = Number(code.match(/\d+/)?.[0] ?? 0);
+        return [429, segundos > 0 ? `O Telegram pediu uma pausa de ${formatarDuracao(segundos)} antes de enviar novamente.` : 'O Telegram pediu uma pausa antes de enviar novamente.', false];
+    }
+    if (['PEER_ID_INVALID', 'CHAT_ID_INVALID', 'CHANNEL_INVALID', 'CHAT_INVALID', 'USER_NOT_PARTICIPANT'].includes(code)) {
+        return [422, 'O chat de destino não foi encontrado para esta conta. Confira se a conta participa do grupo.', false];
+    }
+    if (code === 'MESSAGE_TOO_LONG') {
+        return [422, 'A mensagem excede o limite do Telegram (4096 caracteres).', false];
+    }
+    if (code === 'CHAT_WRITE_FORBIDDEN' || code === 'CHAT_SEND_POLL_FORBIDDEN') {
+        return [403, 'A conta não tem permissão para escrever neste grupo.', false];
+    }
+    console.error('[mtproto] Erro de envio não mapeado:', code || error?.message || error);
+    return [502, `Não foi possível enviar pelo Telegram. Tente novamente. (${code || error?.message || 'erro desconhecido'})`, false];
+}
+
+function validChatId(value) {
+    return typeof value === 'string' && /^-?\d{1,20}$/.test(value.trim());
+}
+
 function errorResponse(error) {
     switch (error?.errorMessage) {
         case 'PHONE_NUMBER_INVALID':
@@ -128,7 +154,7 @@ export function createTelegramMtprotoServer({
     apiId = process.env.TELEGRAM_API_ID,
     apiHash = process.env.TELEGRAM_API_HASH,
     serviceToken = process.env.TELEGRAM_MTPROTO_SERVICE_TOKEN,
-    clientFactory = (id, hash) => new TelegramClient(new StringSession(''), id, hash, {
+    clientFactory = (id, hash, sessionString = '') => new TelegramClient(new StringSession(sessionString), id, hash, {
         connectionRetries: 3,
         floodSleepThreshold: 0,
     }),
@@ -136,12 +162,12 @@ export function createTelegramMtprotoServer({
 } = {}) {
     const pending = new Map();
 
-    async function destroyOperation(operationId, operation) {
+    async function destroyOperation(operationId, operation, { logout = true } = {}) {
         pending.delete(operationId);
         operation.closed = true;
 
         try {
-            if (operation.authorized) {
+            if (logout && operation.authorized) {
                 await operation.client.logOut();
             }
         } catch {
@@ -312,7 +338,11 @@ export function createTelegramMtprotoServer({
                     });
                 }
 
-                await destroyOperation(operationId, operation);
+                // Sessão persistente: o Laravel guarda o StringSession
+                // (criptografado) para envios futuros como a conta do usuário.
+                // Apenas desconecta — sem logout — para manter a autorização.
+                const session = operation.client.session.save();
+                await destroyOperation(operationId, operation, { logout: false });
 
                 return responseJson(response, 200, {
                     user: {
@@ -321,6 +351,7 @@ export function createTelegramMtprotoServer({
                         firstName: me.firstName ?? null,
                     },
                     groups,
+                    session,
                 });
             } catch (error) {
                 if (error?.errorMessage === 'PHONE_CODE_INVALID' || error?.errorMessage === 'PASSWORD_HASH_INVALID') {
@@ -335,6 +366,62 @@ export function createTelegramMtprotoServer({
                 await destroyOperation(operationId, operation);
                 const [status, message] = errorResponse(error);
                 return responseJson(response, status, { message });
+            }
+        }
+
+        if (url.pathname === '/v1/messages/send') {
+            const session = typeof body.session === 'string' ? body.session : '';
+            const chatId = typeof body.chatId === 'string' ? body.chatId.trim() : '';
+            const message = typeof body.message === 'string' ? body.message : '';
+
+            if (session === '') {
+                return responseJson(response, 422, { message: 'Sessão do Telegram ausente. Autorize a conta novamente.', sessionInvalid: true });
+            }
+            if (!validChatId(chatId)) {
+                return responseJson(response, 422, { message: 'Chat de destino inválido.' });
+            }
+            if (message.trim() === '' || message.length > 4096) {
+                return responseJson(response, 422, { message: 'Mensagem vazia ou acima do limite do Telegram (4096 caracteres).' });
+            }
+
+            const client = clientFactory(Number(apiId), apiHash, session);
+            try {
+                await client.connect();
+                const entity = await client.getEntity(Number(chatId));
+                const sent = await client.sendMessage(entity, { message });
+                return responseJson(response, 200, { ok: true, messageId: sent?.id ?? null });
+            } catch (error) {
+                const [status, errorMessage, sessionInvalid] = sendErrorResponse(error);
+                return responseJson(response, status, { message: errorMessage, sessionInvalid });
+            } finally {
+                try {
+                    await client.disconnect();
+                } catch {
+                    // Conexão descartável por envio.
+                }
+            }
+        }
+
+        if (url.pathname === '/v1/auth/logout') {
+            const session = typeof body.session === 'string' ? body.session : '';
+            if (session === '') {
+                return responseJson(response, 200, { ok: true });
+            }
+
+            const client = clientFactory(Number(apiId), apiHash, session);
+            try {
+                await client.connect();
+                await client.logOut();
+                return responseJson(response, 200, { ok: true });
+            } catch (error) {
+                const [status, errorMessage, sessionInvalid] = sendErrorResponse(error);
+                return responseJson(response, status, { message: errorMessage, sessionInvalid });
+            } finally {
+                try {
+                    await client.disconnect();
+                } catch {
+                    // Conexão descartável.
+                }
             }
         }
 

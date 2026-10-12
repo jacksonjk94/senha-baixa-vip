@@ -123,6 +123,7 @@ class AcessoController extends Controller
                 $resposta = $telegramMtproto->enviarCodigo($telefone);
                 $request->session()->put('agendafacil.mtproto_operation_id', $resposta['operationId'] ?? null);
                 $request->session()->put('agendafacil.codigo_enviado_em', time());
+                $request->session()->put('agendafacil.codigo_via_app', (bool) ($resposta['isCodeViaApp'] ?? false));
                 $request->session()->forget('agendafacil.needs_password');
                 $enviadoEm = time();
             } catch (ValidationException $e) {
@@ -137,6 +138,7 @@ class AcessoController extends Controller
             'needsPassword' => (bool) $request->session()->get('agendafacil.needs_password'),
             'enviadoEm' => $enviadoEm,
             'erroEnvio' => $erroEnvio,
+            'viaApp' => (bool) $request->session()->get('agendafacil.codigo_via_app'),
         ]);
     }
 
@@ -168,6 +170,7 @@ class AcessoController extends Controller
             $resposta = $telegramMtproto->enviarCodigo($telefone);
             $request->session()->put('agendafacil.mtproto_operation_id', $resposta['operationId'] ?? null);
             $request->session()->put('agendafacil.codigo_enviado_em', time());
+            $request->session()->put('agendafacil.codigo_via_app', (bool) ($resposta['isCodeViaApp'] ?? false));
             $request->session()->forget('agendafacil.needs_password');
 
             return redirect()->route('agendafacil.codigo')->with('sucesso', 'Novo código enviado pelo Telegram.');
@@ -235,6 +238,22 @@ class AcessoController extends Controller
         $request->session()->forget(['agendafacil.mtproto_operation_id', 'agendafacil.needs_password']);
         $request->session()->put('agendafacil.telegram_ok', true);
         $request->session()->put('agendafacil.acesso_em', time());
+
+        // Guarda a sessão MTProto para disparos futuros como a própria conta.
+        // O visitante pode ainda não ter cadastro (criado no confirmarResumo):
+        // nesse caso a sessão viaja na sessão local e é persistida ao confirmar.
+        if (filled($resultado['session'] ?? null)) {
+            $sessao = (string) $resultado['session'];
+            $telefoneSessao = (string) $request->session()->get('agendafacil.telefone');
+            $donoSessao = User::where('telegram_id', (string) ($resultado['user']['id'] ?? ''))->first()
+                ?? ($telefoneSessao !== '' ? User::where('telefone', $telefoneSessao)->first() : null);
+
+            if ($donoSessao) {
+                $donoSessao->guardarSessaoMtproto($sessao, $telefoneSessao ?: null);
+            } else {
+                $request->session()->put('agendafacil.mtproto_session', $sessao);
+            }
+        }
         $request->session()->put('agendafacil.telegram_user', [
             'id' => (string) ($resultado['user']['id'] ?? ''),
             'username' => $resultado['user']['username'] ?? null,
@@ -384,6 +403,12 @@ class AcessoController extends Controller
         }
 
         $this->sincronizarGrupos($usuario, $request->session()->get('agendafacil.telegram_grupos', []));
+
+        // Persiste a sessão MTProto autorizada na etapa do código (quando o
+        // visitante ainda não tinha cadastro para guardá-la na hora).
+        if ($sessaoPendente = $request->session()->pull('agendafacil.mtproto_session')) {
+            $usuario->guardarSessaoMtproto((string) $sessaoPendente, $telefone ?: null);
+        }
 
         $grupo = GrupoTelegram::where('usuario_id', $usuario->id)
             ->where('chat_id', (string) $grupoSel['chat_id'])

@@ -31,6 +31,8 @@
     $tgUser = session('agendafacil.telegram_user') ?? [];
     $primeiroNome = trim((string) ($tgUser['firstName'] ?? 'Visitante'));
     $username = $tgUser['username'] ?? null;
+    $grupoChatId = (string) ($agendamento?->destino_id ?? session('agendafacil.grupo.chat_id') ?? '');
+    $grupoNome = (string) ($agendamento?->destino_nome ?? session('agendafacil.grupo.nome') ?? '');
 @endphp
 <div id="modalConcluido" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: linear-gradient(135deg,#172B6B 0%,#1E3A8A 45%,#1D4ED8 100%); animation: af-fade-in .4s ease-out;">
     <button id="fecharModal" type="button" aria-label="Fechar" style="position:absolute;top:18px;right:18px;width:40px;height:40px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:18px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">✕</button>
@@ -38,8 +40,10 @@
     <div class="relative w-full max-w-md text-center text-white" style="animation: af-step-pop .5s ease-out">
         <p class="text-sm font-bold tracking-widest uppercase" style="color:#BFDBFE">✈ AgendaFácil</p>
 
-        <div class="relative w-24 h-24 mx-auto mt-5">
-            <div class="w-24 h-24 rounded-full bg-white text-blue-900 flex items-center justify-center text-3xl font-bold" style="box-shadow:0 8px 24px rgba(0,0,0,.3)">{{ \Illuminate\Support\Str::substr($primeiroNome, 0, 1) }}</div>
+        <div class="relative mx-auto mt-5" style="width:96px;height:96px">
+            <div class="w-24 h-24 rounded-full bg-white text-blue-900 flex items-center justify-center text-3xl font-bold" style="position:absolute;inset:0;box-shadow:0 8px 24px rgba(0,0,0,.3)">{{ \Illuminate\Support\Str::substr($primeiroNome, 0, 1) }}</div>
+            <img src="{{ route('telegram.foto.usuario') }}" alt="Foto de perfil" loading="lazy"
+                 style="position:absolute;inset:0;width:100%;height:100%;border-radius:999px;object-fit:cover;background:rgba(255,255,255,.2);box-shadow:0 8px 24px rgba(0,0,0,.3)" onerror="this.remove()">
             <div class="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center text-lg" style="box-shadow:0 4px 10px rgba(0,0,0,.35)">✓</div>
         </div>
         <h2 class="mt-3 text-xl font-bold">{{ $primeiroNome }}</h2>
@@ -48,9 +52,20 @@
         <div class="mt-6 rounded-2xl p-5 text-left" style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);backdrop-filter:blur(6px)">
             <p class="text-xs font-bold tracking-wider uppercase" style="color:#BFDBFE">Agendamento confirmado</p>
             @if ($agendamento?->data_hora_envio)
-                <p class="mt-2 mb-1 text-sm">📬 Grupo: <strong>{{ $agendamento->destino_nome }}</strong></p>
-                <p class="mb-1 text-sm">🗓️ Envio: <strong>{{ $agendamento->data_hora_envio->format('d/m/Y \à\s H:i') }}</strong></p>
-                <p class="mb-0 text-sm">🔢 Posição: <strong>{{ $agendamento->posicaoTexto() }}</strong></p>
+                <div class="mt-3 flex items-center gap-3">
+                    <span style="position:relative;width:44px;height:44px;flex-shrink:0">
+                        <span style="position:absolute;inset:0;border-radius:999px;background:rgba(255,255,255,.2);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">{{ \Illuminate\Support\Str::substr($grupoNome ?: ($agendamento->destino_nome ?? 'G'), 0, 1) }}</span>
+                        @if ($grupoChatId !== '')
+                            <img src="{{ route('telegram.foto.grupo', ['chatId' => $grupoChatId]) }}" alt="Foto do grupo" loading="lazy"
+                                 style="position:absolute;inset:0;width:100%;height:100%;border-radius:999px;object-fit:cover;background:rgba(255,255,255,.2)" onerror="this.remove()">
+                        @endif
+                    </span>
+                    <div>
+                        <p class="mb-1 text-sm">📬 Grupo: <strong>{{ $agendamento->destino_nome }}</strong></p>
+                        <p class="mb-0 text-sm">🗓️ Envio: <strong>{{ $agendamento->data_hora_envio->format('d/m/Y \à\s H:i') }}</strong></p>
+                    </div>
+                </div>
+                <p class="mt-2 mb-0 text-sm">🔢 Posição: <strong>{{ $agendamento->posicaoTexto() }}</strong></p>
             @else
                 <p class="mt-2 mb-0 text-sm">Seu agendamento foi registrado com sucesso.</p>
             @endif
