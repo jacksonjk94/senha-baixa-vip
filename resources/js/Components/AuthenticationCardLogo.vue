@@ -1,5 +1,7 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
+
+const appName = import.meta.env.VITE_APP_NAME || 'SenhaBaixa VIP';
 </script>
 
 <template>
@@ -16,7 +18,7 @@ import { Link } from '@inertiajs/vue3';
             >✈</span
         >
         <span class="text-xl font-bold tracking-tight" style="color: #1b87b8"
-            >AgendaFácil</span
+            >{{ appName }}</span
         >
     </Link>
 </template>

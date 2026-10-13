@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
-        <title>@yield('titulo', 'AgendaFácil') · AgendaFácil</title>
+        <title>@yield('titulo', config('app.name')) · {{ config('app.name') }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -56,7 +56,7 @@
 <body class="tg-body">
 <header class="telegram-gradient tg-topbar">
     <div class="tg-container d-flex align-items-center justify-content-between">
-        <a href="{{ route('agendafacil.acesso') }}">✈ AgendaFácil</a>
+        <a href="{{ route('agendafacil.acesso') }}">✈ {{ config('app.name') }}</a>
         <nav class="d-flex gap-3 small">
             <a href="{{ route('agendafacil.acesso') }}">Início</a>
             @auth
@@ -84,7 +84,7 @@
 </main>
 
 <footer class="text-center text-muted small pb-4">
-    AgendaFácil · {{ date('Y') }}
+    {{ config('app.name') }} · {{ date('Y') }}
 </footer>
 <script>
     // Botões de formulário/etapa: spinner + desabilitado ao enviar (evita duplo clique).

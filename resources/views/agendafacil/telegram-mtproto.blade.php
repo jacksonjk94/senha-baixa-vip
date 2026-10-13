@@ -59,10 +59,10 @@
 
                 <label class="form-check mt-3">
                     <input class="form-check-input" type="checkbox" name="consentimento" value="1" @checked(old('consentimento')) required>
-                    <span class="form-check-label">Autorizo o AgendaFácil a autenticar minha conta Telegram e consultar meus grupos e supergrupos para este fluxo.</span>
+                    <span class="form-check-label">Autorizo o {{ config('app.name') }} a autenticar minha conta Telegram e consultar meus grupos e supergrupos para este fluxo.</span>
                 </label>
 
-                <p class="text-muted small mt-3 mb-0">O código e a senha 2FA, se solicitada, são enviados somente ao serviço MTProto local e não são registrados. Após a consulta, a sessão Telegram é encerrada.</p>
+                <p class="text-muted small mt-3 mb-0">O código e a senha 2FA, se solicitada, são enviados somente ao serviço MTProto local e não são registrados. A sessão autorizada fica guardada para enviar suas mensagens agendadas como a sua conta.</p>
                 <button type="submit" class="btn-telegram mt-3">Enviar código Telegram</button>
             </form>
         @endif

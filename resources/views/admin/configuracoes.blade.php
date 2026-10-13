@@ -28,6 +28,16 @@
         </select>
         <small class="text-muted">No modo teste, o código pode ser qualquer número, os grupos são fictícios e nada é salvo no final.</small>
     </div>
+    <div class="af-subcard p-3">
+        <div class="form-check form-switch">
+            <input type="checkbox" name="disparo_latencia_ativo" value="1" class="form-check-input" id="latenciaAtivo" @checked($latenciaAtiva ?? true)>
+            <label class="form-check-label fw-semibold" for="latenciaAtivo">Disparos com latência/antecedência</label>
+        </div>
+        <small class="text-muted d-block mb-2">Quando ligado, o disparo inicia antes do :00s.000ms pelo tempo da latência medida, para a mensagem chegar no Telegram exatamente no segundo 00 (meta: 00s.00x ms).</small>
+        <label class="form-label fw-semibold" for="latenciaMs">Latência medida (ms) *</label>
+        <input type="number" name="disparo_latencia_ms" id="latenciaMs" class="form-control" value="{{ $latenciaMs ?? 250 }}" min="0" max="10000" step="50" required>
+        <small class="text-muted">Tempo entre iniciar o envio e a chegada no Telegram. Medido local (MTProto): ~250–400ms. Se chegar no 59s, diminua; se chegar após 00.5s, aumente.</small>
+    </div>
     <div>
         <button class="btn btn-primary">Salvar configurações</button>
     </div>

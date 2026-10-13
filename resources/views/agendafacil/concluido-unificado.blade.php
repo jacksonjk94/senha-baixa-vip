@@ -38,7 +38,7 @@
     <button id="fecharModal" type="button" aria-label="Fechar" style="position:absolute;top:18px;right:18px;width:40px;height:40px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:18px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">✕</button>
 
     <div class="relative w-full max-w-md text-center text-white" style="animation: af-step-pop .5s ease-out">
-        <p class="text-sm font-bold tracking-widest uppercase" style="color:#BFDBFE">✈ AgendaFácil</p>
+        <p class="text-sm font-bold tracking-widest uppercase" style="color:#BFDBFE">✈ {{ config('app.name') }}</p>
 
         <div class="relative mx-auto mt-5" style="width:96px;height:96px">
             <div class="w-24 h-24 rounded-full bg-white text-blue-900 flex items-center justify-center text-3xl font-bold" style="position:absolute;inset:0;box-shadow:0 8px 24px rgba(0,0,0,.3)">{{ \Illuminate\Support\Str::substr($primeiroNome, 0, 1) }}</div>
@@ -75,7 +75,7 @@
             <span style="font-size:20px">✅</span>
             <span class="font-semibold text-sm">Tudo certo! Vamos avisar você no horário.</span>
         </div>
-        <p class="mt-4 text-xs" style="color:#93C5FD">Obrigado por usar o AgendaFácil — sua mensagem estará na hora certa. 💙</p>
+        <p class="mt-4 text-xs" style="color:#93C5FD">Obrigado por usar o {{ config('app.name') }} — sua mensagem estará na hora certa. 💙</p>
     </div>
 
     {{-- partículas decorativas flutuando --}}

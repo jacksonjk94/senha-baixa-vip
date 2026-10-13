@@ -87,7 +87,7 @@
             @csrf
             <input type="hidden" name="bot_id" value="{{ $botSelecionado?->id }}">
             <div><label class="form-label fw-semibold">chat_id *</label><input name="chat_id" id="testeChatId" class="form-control" placeholder="-100123... (grupo) ou id do usuário" required></div>
-            <div><label class="form-label fw-semibold">Mensagem *</label><textarea name="mensagem" class="form-control" rows="3" maxlength="1000" required>Teste AgendaFácil 🤖 — se você leu isto, o bot está enviando.</textarea></div>
+            <div><label class="form-label fw-semibold">Mensagem *</label><textarea name="mensagem" class="form-control" rows="3" maxlength="1000" required>Teste {{ config('app.name') }} 🤖 — se você leu isto, o bot está enviando.</textarea></div>
             <div><button class="btn btn-primary">Enviar teste</button></div>
         </form>
     </div></div></div>

@@ -37,7 +37,7 @@ Route::post('/agendar', [AgendamentoController::class, 'salvar'])->name('agendar
 Route::get('/agendamento/{agendamento}/confirmacao', [AgendamentoController::class, 'confirmacao'])->name('agendamento.confirmacao');
 Route::get('/meus-agendamentos', [AgendamentoController::class, 'meus'])->name('agendamento.meus');
 
-// ── AgendaFácil · Fluxo único (Blade, identidade Telegram) ──
+// ── Fluxo único (Blade, identidade Telegram) ──
 // 1. Telefone → 2. Código → 3. Horário → 4. Grupo → 5. Confirmar → 6. Concluído
 Route::get('/acesso', [AcessoController::class, 'acesso'])->name('agendafacil.acesso');
 Route::post('/acesso', [AcessoController::class, 'validarAcesso'])->name('agendafacil.acesso.validar');

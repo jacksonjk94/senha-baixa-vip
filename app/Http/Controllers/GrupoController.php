@@ -34,14 +34,29 @@ class GrupoController extends Controller
                 ->with('aviso', 'Nenhum grupo ou supergrupo encontrado nesta conta do Telegram.');
         }
 
+        // Modo atual de cada grupo (para pré-selecionar aberto/fechado).
+        $modos = [];
+        if ($visitanteId = $request->session()->get('agendafacil.visitante_id')) {
+            $modos = GrupoTelegram::where('usuario_id', $visitanteId)
+                ->get(['chat_id', 'modo', 'horario_disparo'])
+                ->keyBy(fn ($g) => (string) $g->chat_id)
+                ->map(fn ($g) => [
+                    'modo' => $g->modo ?? GrupoTelegram::MODO_ABERTO,
+                    'horario_disparo' => $g->horario_disparo?->format('H:i'),
+                ])
+                ->all();
+        }
+
         return view('agendafacil.selecionar-grupo', [
             'grupos' => $grupos,
             'grupo' => $request->session()->get('agendafacil.grupo'),
+            'modos' => $modos,
         ]);
     }
 
     /**
-     * Confirma o grupo escolhido e segue para a confirmação dos dados.
+     * Confirma o grupo escolhido (+ se é aberto ou fechado) e segue para
+     * a confirmação dos dados.
      */
     public function confirmar(Request $request)
     {
@@ -51,8 +66,14 @@ class GrupoController extends Controller
 
         $dados = $request->validate([
             'chat_id' => ['required', 'string'],
+            'modo' => ['required', 'in:aberto,fechado'],
+            'horario_disparo' => ['nullable', 'required_if:modo,fechado', 'date_format:H:i'],
         ], [
             'chat_id.required' => 'Confirme o grupo para continuar.',
+            'modo.required' => 'Escolha se o grupo é aberto ou fechado.',
+            'modo.in' => 'Tipo de grupo inválido.',
+            'horario_disparo.required_if' => 'Informe o horário do disparo em bloco.',
+            'horario_disparo.date_format' => 'Horário inválido (use HH:MM).',
         ]);
 
         $grupo = collect($request->session()->get('agendafacil.telegram_grupos', []))
@@ -66,6 +87,10 @@ class GrupoController extends Controller
             'chat_id' => (string) $grupo['chat_id'],
             'nome' => (string) $grupo['nome'],
             'tipo' => (string) ($grupo['tipo'] ?? 'group'),
+            'modo' => $dados['modo'],
+            'horario_disparo' => $dados['modo'] === GrupoTelegram::MODO_FECHADO
+                ? $dados['horario_disparo']
+                : null,
         ]);
 
         return redirect()->route('agendafacil.confirmar-dados');

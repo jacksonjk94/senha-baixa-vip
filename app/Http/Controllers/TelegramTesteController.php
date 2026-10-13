@@ -85,7 +85,7 @@ class TelegramTesteController extends Controller
         [, $servico] = $this->servicoPara($dados['bot_id'] ?? null, $telegram);
         $envio = $servico->enviarMensagem(
             $dados['chat_id'],
-            "Seu código de verificação AgendaFácil: {$codigo}"
+            'Seu código de verificação ' . config('app.name') . ": {$codigo}"
         );
 
         if (! $envio['ok']) {

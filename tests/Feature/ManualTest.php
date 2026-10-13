@@ -32,6 +32,7 @@ class ManualTest extends TestCase
 
         $resposta->assertOk();
         $resposta->assertSee('Manual do sistema');
+        $resposta->assertSee(config('app.name'), false);
         $resposta->assertSee('Fluxo do visitante');
         $resposta->assertSee('Papéis e permissões');
         $resposta->assertSee('Disparo automático');

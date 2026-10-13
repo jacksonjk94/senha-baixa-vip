@@ -45,6 +45,7 @@ Projeto em Laravel 12 (Jetstream + Inertia/Vue) · Curitiba/PR · 2026
 | 07/10/2026 | 3.4.5 | Admin | Tempo real em /admin/cadastros, /admin/disparos e /admin/grupos | OpenCode |
 | 07/10/2026 | 3.4.6 | Segurança/Infra | /telegram/teste-api restrita a admin; favicon SVG global | OpenCode |
 | 07/10/2026 | 4.1.0 | Estilo/UX | Atualização visual da área de agendamento: paleta Telegram escuro (azul-900/slate), linha do tempo horizontal substituindo abas (partials/timeline), gradiente interativo nos botões (from-blue-900 to-blue-700 → hover from-blue-800 to-blue-600 + .btn-telegram), inputs com foco blue-700, fontes compactas preservadas em todas as telas do fluxo | OpenCode |
+| 12/10/2026 | 4.2.0 | Disparo MTProto + precisão | Disparos pela sessão MTProto guardada (fallback ao bot); sessão salva no fluxo do código; conexão Node aquecida; envio no :00 menos latência medida (250ms, admin ligado por padrão); disparos-cron adiantado; endpoint /precisao — ver detalhes no LOG-ALTERACOES-v2.md | OpenCode (Muse Spark) |
 
 ---
 

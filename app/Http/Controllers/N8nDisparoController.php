@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Agendamento;
+use App\Models\Configuracao;
 use App\Services\TelegramDisparoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,10 +44,25 @@ class N8nDisparoController extends Controller
         $erros = 0;
         $ignorados = 0;
 
+        // Precisão: com antecipação configurada (só local), busca disparos
+        // até N segundos no futuro e segura cada envio até o instante de
+        // disparo — o :00.000 menos a latência medida — para a mensagem
+        // chegar no Telegram no segundo 00 (meta 00s:00x).
+        $antecipacao = max(0, (int) config('services.disparo.antecipacao_segundos', 0));
+        $latenciaAtiva = Configuracao::latenciaAtiva();
+        $latenciaMs = $latenciaAtiva ? Configuracao::latenciaMs() : 0;
+
+        if ($antecipacao > 0) {
+            @set_time_limit(0);
+            ignore_user_abort(true);
+        }
+
+        $horizonte = $agora->copy()->addSeconds($antecipacao);
+
         // Ordem = horário, grupo, confirmação (posição); lote de 50.
         $agendamentos = Agendamento::with('grupo')
             ->where('status', Agendamento::STATUS_PENDENTE)
-            ->where('data_hora_envio', '<=', $agora)
+            ->where('data_hora_envio', '<=', $horizonte)
             ->orderBy('data_hora_envio')
             ->orderBy('grupo_telegram_id')
             ->orderBy('id')
@@ -64,17 +80,48 @@ class N8nDisparoController extends Controller
                 continue;
             }
 
-            // ⏰ Grupo fechado: só envia no horário de disparo (bloco).
+            // Instante exato do envio (:00.000 do minuto, ou horário de
+            // disparo em bloco) menos a latência medida, para a chegada
+            // ocorrer no segundo 00.
+            $alvo = $this->alvoEnvio($agendamento, $grupo);
+            $disparoEmTs = $alvo->valueOf() / 1000 - $latenciaMs / 1000;
+            $espera = $disparoEmTs - microtime(true);
+
+            if ($espera > 0.05) {
+                if ($antecipacao <= 0 || $espera > $antecipacao + 2 + $latenciaMs / 1000) {
+                    $ignorados++;
+
+                    continue; // ainda não é hora — mantém pendente
+                }
+
+                time_sleep_until($disparoEmTs);
+                $agoraItem = now('America/Sao_Paulo');
+            } else {
+                $agoraItem = now('America/Sao_Paulo');
+            }
+
+            // ⏰ Grupo fechado: só envia no horário de disparo (bloco),
+            // com tolerância da latência de antecipação (o envio legítimo
+            // ocorre latencia_ms antes do horário).
             if ($grupo->ehFechado() && $grupo->horario_disparo) {
                 $horaDisparo = $agendamento->data_hora_envio
                     ->copy()
                     ->setTimeFromTimeString($grupo->horario_disparo->format('H:i'));
 
-                if ($agora->lt($horaDisparo)) {
+                if ($agoraItem->valueOf() < $horaDisparo->valueOf() - $latenciaMs) {
                     $ignorados++;
 
                     continue; // mantém pendente para a próxima chamada
                 }
+            }
+
+            // Evita duplo envio se outra execução pegou o item durante a espera.
+            $fresco = Agendamento::select('id', 'status')->find($agendamento->id);
+
+            if (! $fresco || $fresco->status !== Agendamento::STATUS_PENDENTE) {
+                $ignorados++;
+
+                continue;
             }
 
             // Envia pela sessão MTProto da conta (ou bot, sem sessão).
@@ -101,7 +148,7 @@ class N8nDisparoController extends Controller
 
                 $agendamento->update([
                     'status' => Agendamento::STATUS_ENVIADO,
-                    'enviado_em' => $agora,
+                    'enviado_em' => now('America/Sao_Paulo'),
                     'posicao' => $posicao,
                     'total_grupo_horario' => $total,
                     'mensagem_erro' => null,
@@ -122,6 +169,45 @@ class N8nDisparoController extends Controller
             'enviados' => $enviados,
             'erros' => $erros,
             'ignorados' => $ignorados,
+            'antecipacao_segundos' => $antecipacao,
+            'latencia_ativa' => $latenciaAtiva,
+            'latencia_ms' => $latenciaMs,
         ]);
+    }
+
+    /**
+     * Parâmetros de precisão para o serviço disparos-cron (mesma chave
+     * secreta do processar). O cron dispara adiantado pela latência.
+     */
+    public function precisao(Request $request): JsonResponse
+    {
+        $esperado = (string) config('services.n8n.secret', '');
+        $recebido = (string) $request->header('X-N8N-Secret', '');
+
+        if ($esperado === '' || ! hash_equals($esperado, $recebido)) {
+            return response()->json(['erro' => 'Acesso negado'], 403);
+        }
+
+        return response()->json([
+            'latencia_ativa' => Configuracao::latenciaAtiva(),
+            'latencia_ms' => Configuracao::latenciaMs(),
+            'antecipacao_segundos' => max(0, (int) config('services.disparo.antecipacao_segundos', 0)),
+        ]);
+    }
+
+    /**
+     * Instante exato do envio (:00.000 do minuto). Grupo fechado usa o
+     * horário de disparo em bloco da rodada.
+     */
+    public function alvoEnvio(Agendamento $agendamento, \App\Models\GrupoTelegram $grupo): \Carbon\Carbon
+    {
+        if ($grupo->ehFechado() && $grupo->horario_disparo) {
+            return $agendamento->data_hora_envio
+                ->copy()
+                ->setTimeFromTimeString($grupo->horario_disparo->format('H:i'))
+                ->startOfMinute();
+        }
+
+        return $agendamento->data_hora_envio->copy()->startOfMinute();
     }
 }

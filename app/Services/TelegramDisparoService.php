@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Agendamento;
 
 /**
- * Disparo de mensagens do AgendaFácil.
+ * Disparo de mensagens do sistema.
  *
  * Canal preferencial: sessão MTProto guardada da conta (envia como a própria
  * pessoa — funciona em grupos onde o bot do sistema não está). Sem sessão

@@ -1,4 +1,4 @@
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer as createHttpServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -31,6 +31,23 @@ for (const path of [resolve(serviceDirectory, '../../.env'), resolve(serviceDire
 
 const OPERATION_TTL_MS = 10 * 60 * 1000;
 const MAX_BODY_BYTES = 16 * 1024;
+// Conexões de envio aquecidas: conectar do zero a cada disparo custa
+// segundos (TCP+TLS+auth) e atrasa a chegada no minuto exato.
+const SENDER_IDLE_MS = 2 * 60 * 1000;
+const MAX_SENDERS = 50;
+const TRANSPORT_ERROR_PREFIXES = ['CONNECTION_', 'TIMEOUT', 'NETWORK_', 'WEBSOCKET_', 'DISCONNECTED', 'EPIPE', 'ECONN'];
+
+function hashSession(session) {
+    return createHash('sha256').update(session).digest('hex');
+}
+
+function isTransportError(error) {
+    const code = error?.errorMessage ?? error?.code ?? '';
+    if (code === '') {
+        return true;
+    }
+    return TRANSPORT_ERROR_PREFIXES.some((prefix) => String(code).startsWith(prefix));
+}
 
 export function groupsFromDialogs(dialogs) {
     const groups = [];
@@ -161,6 +178,45 @@ export function createTelegramMtprotoServer({
     now = Date.now,
 } = {}) {
     const pending = new Map();
+    const senders = new Map(); // hash da sessão -> { client, lastUsed }
+
+    async function closeSender(key) {
+        const entry = senders.get(key);
+        senders.delete(key);
+        if (!entry) {
+            return;
+        }
+        try {
+            await entry.client.disconnect();
+        } catch {
+            // Conexão descartável.
+        }
+    }
+
+    function dropSender(session) {
+        return closeSender(hashSession(session));
+    }
+
+    async function senderClient(session) {
+        const key = hashSession(session);
+        const existing = senders.get(key);
+
+        if (existing) {
+            senders.delete(key);
+            senders.set(key, existing);
+            existing.lastUsed = now();
+            return existing.client;
+        }
+
+        if (senders.size >= MAX_SENDERS) {
+            await closeSender(senders.keys().next().value);
+        }
+
+        const client = clientFactory(Number(apiId), apiHash, session);
+        await client.connect();
+        senders.set(key, { client, lastUsed: now() });
+        return client;
+    }
 
     async function destroyOperation(operationId, operation, { logout = true } = {}) {
         pending.delete(operationId);
@@ -185,6 +241,11 @@ export function createTelegramMtprotoServer({
         for (const [operationId, operation] of pending) {
             if (operation.expiresAt <= now()) {
                 void destroyOperation(operationId, operation);
+            }
+        }
+        for (const [key, entry] of senders) {
+            if (entry.lastUsed + SENDER_IDLE_MS <= now()) {
+                void closeSender(key);
             }
         }
     }, 60_000);
@@ -384,21 +445,36 @@ export function createTelegramMtprotoServer({
                 return responseJson(response, 422, { message: 'Mensagem vazia ou acima do limite do Telegram (4096 caracteres).' });
             }
 
-            const client = clientFactory(Number(apiId), apiHash, session);
+            let client;
             try {
-                await client.connect();
+                client = await senderClient(session);
+            } catch (error) {
+                const [status, errorMessage, sessionInvalid] = sendErrorResponse(error);
+                return responseJson(response, status, { message: errorMessage, sessionInvalid });
+            }
+
+            try {
                 const entity = await client.getEntity(Number(chatId));
                 const sent = await client.sendMessage(entity, { message });
                 return responseJson(response, 200, { ok: true, messageId: sent?.id ?? null });
             } catch (error) {
+                await dropSender(session);
+
+                if (isTransportError(error)) {
+                    try {
+                        const retry = await senderClient(session);
+                        const entity = await retry.getEntity(Number(chatId));
+                        const sent = await retry.sendMessage(entity, { message });
+                        return responseJson(response, 200, { ok: true, messageId: sent?.id ?? null });
+                    } catch (retryError) {
+                        await dropSender(session);
+                        const [retryStatus, retryMessage, retryInvalid] = sendErrorResponse(retryError);
+                        return responseJson(response, retryStatus, { message: retryMessage, sessionInvalid: retryInvalid });
+                    }
+                }
+
                 const [status, errorMessage, sessionInvalid] = sendErrorResponse(error);
                 return responseJson(response, status, { message: errorMessage, sessionInvalid });
-            } finally {
-                try {
-                    await client.disconnect();
-                } catch {
-                    // Conexão descartável por envio.
-                }
             }
         }
 
@@ -407,6 +483,8 @@ export function createTelegramMtprotoServer({
             if (session === '') {
                 return responseJson(response, 200, { ok: true });
             }
+
+            await dropSender(session);
 
             const client = clientFactory(Number(apiId), apiHash, session);
             try {
@@ -432,6 +510,9 @@ export function createTelegramMtprotoServer({
         clearInterval(cleanupTimer);
         for (const [operationId, operation] of pending) {
             void destroyOperation(operationId, operation);
+        }
+        for (const [key] of senders) {
+            void closeSender(key);
         }
     });
 

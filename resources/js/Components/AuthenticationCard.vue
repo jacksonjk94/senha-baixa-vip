@@ -1,3 +1,7 @@
+<script setup>
+const appName = import.meta.env.VITE_APP_NAME || 'SenhaBaixa VIP';
+</script>
+
 <template>
     <div
         class="flex min-h-screen flex-col items-center pt-6 sm:justify-center sm:pt-0"
@@ -28,7 +32,7 @@
             class="mt-6 text-xs font-medium tracking-wide"
             style="color: #6b8ca3"
         >
-            AgendaFácil · acesso administrativo
+            {{ appName }} · acesso administrativo
         </p>
     </div>
 </template>

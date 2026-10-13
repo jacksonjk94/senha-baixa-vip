@@ -9,5 +9,5 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// AgendaFácil · verifica a cada minuto agendamentos vencidos e enfileira o disparo.
+// Disparos · verifica a cada minuto agendamentos vencidos e enfileira o disparo.
 Schedule::command(ProcessarAgendamentos::class)->everyMinute();

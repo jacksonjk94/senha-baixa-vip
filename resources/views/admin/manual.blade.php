@@ -3,7 +3,7 @@
 
 @section('conteudo')
 <h1 class="h4">📘 Manual do sistema</h1>
-<p class="text-muted">Guia completo do AgendaFácil: fluxo do visitante, telas administrativas, papéis de acesso, grupos, disparos automáticos e solução de problemas.</p>
+<p class="text-muted">Guia completo do {{ config('app.name') }}: fluxo do visitante, telas administrativas, papéis de acesso, grupos, disparos automáticos e solução de problemas.</p>
 
 <div class="card stat-card mb-3"><div class="card-body">
     <h2 class="h6">Índice</h2>
@@ -22,7 +22,7 @@
 
 <div class="card stat-card mb-3" id="m-visao"><div class="card-body">
     <h2 class="h6">1 · Visão geral</h2>
-    <p class="mb-0">O AgendaFácil organiza <strong>senhas de atendimento</strong>: o visitante agenda pelo navegador (sem precisar de conta no Telegram), e no horário marcado o sistema envia a senha automaticamente no <strong>grupo do Telegram</strong> de destino. A ordem de envio segue a <strong>posição</strong> (quem agendou primeiro aparece primeiro). A página inicial (<code>/</code>) redireciona para o fluxo em <code>/acesso</code>. Todos os horários do sistema usam <strong>Brasília (America/Sao_Paulo)</strong>.</p>
+    <p class="mb-0">O {{ config('app.name') }} organiza <strong>senhas de atendimento</strong>: o visitante agenda pelo navegador (sem precisar de conta no Telegram), e no horário marcado o sistema envia a senha automaticamente no <strong>grupo do Telegram</strong> de destino. A ordem de envio segue a <strong>posição</strong> (quem agendou primeiro aparece primeiro). A página inicial (<code>/</code>) redireciona para o fluxo em <code>/acesso</code>. Todos os horários do sistema usam <strong>Brasília (America/Sao_Paulo)</strong>.</p>
 </div></div>
 
 <div class="card stat-card mb-3" id="m-fluxo"><div class="card-body">

@@ -15,3 +15,8 @@ Route::get('/user', function (Request $request) {
 // URL final: GET https://seu-dominio.com/api/n8n/disparos/processar
 Route::get('/n8n/disparos/processar', [N8nDisparoController::class, 'processar'])
     ->name('n8n.disparos.processar');
+
+// Parâmetros de precisão (latência/antecedência) para o serviço
+// disparos-cron disparar adiantado. Mesma proteção por chave secreta.
+Route::get('/n8n/disparos/precisao', [N8nDisparoController::class, 'precisao'])
+    ->name('n8n.disparos.precisao');

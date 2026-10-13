@@ -54,4 +54,11 @@ return [
         'secret' => env('N8N_WORKER_SECRET'),
     ],
 
+    'disparo' => [
+        // Janela (segundos) para buscar disparos antes da hora e segurar o
+        // envio até o :00.000 exato do minuto. 0 = envia ao vencer (padrão;
+        // use >0 só local — no serverless o tempo de execução é limitado).
+        'antecipacao_segundos' => (int) env('DISPARO_ANTECIPACAO_SEGUNDOS', 0),
+    ],
+
 ];

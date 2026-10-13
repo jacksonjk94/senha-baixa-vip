@@ -419,6 +419,21 @@ class AcessoController extends Controller
                 ->withErrors(['grupo_id' => 'Grupo indisponível no momento.']);
         }
 
+        // Aplica o tipo escolhido na seleção (aberto/fechado + horário do
+        // bloco) à regra do grupo — vale para os próximos disparos dele.
+        $modoSessao = $grupoSel['modo'] ?? null;
+
+        if (in_array($modoSessao, [GrupoTelegram::MODO_ABERTO, GrupoTelegram::MODO_FECHADO], true)) {
+            $atualizacao = ['modo' => $modoSessao];
+
+            if ($modoSessao === GrupoTelegram::MODO_FECHADO && filled($grupoSel['horario_disparo'] ?? null)) {
+                $atualizacao['horario_disparo'] = $grupoSel['horario_disparo'];
+            }
+
+            $grupo->update($atualizacao);
+            $grupo->refresh();
+        }
+
         $dataHora = \Carbon\Carbon::parse($rascunho['data_envio'] . ' ' . $rascunho['hora_envio']);
 
         if ($dataHora->isPast()) {

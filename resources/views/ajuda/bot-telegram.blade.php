@@ -5,7 +5,7 @@
 <div class="text-center mt-3">
     <span class="tg-logo telegram-gradient">🤖</span>
     <h1 class="h4 mt-2 mb-1">Como configurar o bot do Telegram</h1>
-    <p class="text-muted">Siga o passo a passo para criar o bot, pegar o token, criar os grupos e vincular tudo ao AgendaFácil.</p>
+    <p class="text-muted">Siga o passo a passo para criar o bot, pegar o token, criar os grupos e vincular tudo ao {{ config('app.name') }}.</p>
 </div>
 
 <div class="card card-telegram mt-3">
@@ -14,7 +14,7 @@
         <ol class="mb-0">
             <li>No Telegram, abra a conversa com <strong>@BotFather</strong> (confira o selo de verificado).</li>
             <li>Envie o comando <code>/newbot</code>.</li>
-            <li>Escolha um <strong>nome</strong> de exibição (ex: <code>AgendaFácil</code>).</li>
+            <li>Escolha um <strong>nome</strong> de exibição (ex: <code>{{ config('app.name') }}</code>).</li>
             <li>Escolha um <strong>username</strong> terminado em <code>bot</code> (ex: <code>AgendaFacil26_bot</code>).</li>
             <li>O BotFather responde com o <strong>token</strong> (formato <code>123456789:ABCdef...</code>). <strong>Copie e guarde</strong> — ele é a senha do bot.</li>
         </ol>
@@ -29,7 +29,7 @@
 </div>
 
 <div class="card card-telegram mt-3">
-    <div class="card-header-telegram">3️⃣ Cadastrar o bot no AgendaFácil</div>
+    <div class="card-header-telegram">3️⃣ Cadastrar o bot no {{ config('app.name') }}</div>
     <div class="card-body p-4">
         <ol class="mb-0">
             <li>Acesse a área <strong>Admin → Bots Telegram</strong>.</li>
@@ -64,7 +64,7 @@
 </div>
 
 <div class="card card-telegram mt-3">
-    <div class="card-header-telegram">6️⃣ Vincular os grupos ao AgendaFácil</div>
+    <div class="card-header-telegram">6️⃣ Vincular os grupos ao {{ config('app.name') }}</div>
     <div class="card-body p-4">
         <ol class="mb-0">
             <li>Acesse <strong>Admin → Grupos</strong>.</li>

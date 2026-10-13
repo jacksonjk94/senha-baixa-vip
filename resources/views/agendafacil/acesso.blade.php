@@ -5,7 +5,7 @@
 @include('agendafacil.partials.timeline', ['etapaAtual' => 1])
 
 <div class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm border border-slate-100 px-6 md:px-8 py-8">
-    <p class="text-xs font-bold tracking-wider uppercase text-blue-700 mb-1">AgendaFácil</p>
+    <p class="text-xs font-bold tracking-wider uppercase text-blue-700 mb-1">{{ config('app.name') }}</p>
     <h1 class="text-2xl font-bold text-slate-800 mb-1">Qual é o seu telefone?</h1>
     <p class="text-slate-500 text-sm md:text-base mb-6">Escolha a opção que se encaixa em você.</p>
 

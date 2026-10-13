@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
-    <title>@yield('titulo', 'Admin') · AgendaFácil Admin</title>
+    <title>@yield('titulo', 'Admin') · {{ config('app.name') }} Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script>
         // Tema antes da pintura (evita flash).
@@ -170,6 +170,8 @@
         /* ── Componentes (toque Material elegante) ── */
         .stat-card { border: 1px solid var(--af-border); border-radius: 20px; box-shadow: var(--af-shadow); background: var(--af-surface); color: var(--af-text); }
         .card.stat-card { background: var(--af-surface); }
+        .af-subcard { border: 1px solid var(--af-border); border-radius: 14px; background: var(--af-surface-2); color: var(--af-text); }
+        .form-check-input:checked { background-color: var(--af-primary); border-color: var(--af-primary); }
         .table { color: var(--af-text); }
         .table thead th { color: var(--af-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--af-border); }
         .table td, .table th { border-bottom: 1px solid var(--af-border); }
@@ -280,7 +282,7 @@
         <div class="af-brand">
             <span class="af-brand-mark">✈</span>
             <span>
-                <span class="af-brand-name">AgendaFácil</span><br>
+                <span class="af-brand-name">{{ config('app.name') }}</span><br>
                 <span class="af-brand-sub">Admin</span>
             </span>
         </div>
@@ -326,7 +328,7 @@
                 </li>
             </ul>
         </div>
-        <div class="af-sidebar-foot">AgendaFácil</div>
+        <div class="af-sidebar-foot">{{ config('app.name') }}</div>
     </aside>
 
     <div class="af-main">

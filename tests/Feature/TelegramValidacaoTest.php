@@ -251,7 +251,7 @@ class TelegramValidacaoTest extends TestCase
 
         $this->get(route('telegram.mtproto.autorizacao'))
             ->assertOk()
-            ->assertSee('Autorizo o AgendaFácil');
+            ->assertSee('Autorizo o ' . config('app.name'));
 
         $this->post(route('telegram.mtproto.enviar-codigo'), [
             'telefone' => '+5511999999999',
@@ -304,7 +304,7 @@ class TelegramValidacaoTest extends TestCase
 
         $this->get(route('telegram.mtproto.autorizacao'))
             ->assertOk()
-            ->assertSee('Autorizo o AgendaFácil');
+            ->assertSee('Autorizo o ' . config('app.name'));
     }
 
     public function test_login_mtproto_solicita_2fa_e_rejeita_conta_diferente(): void

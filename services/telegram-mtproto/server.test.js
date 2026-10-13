@@ -231,6 +231,59 @@ test('maps revoked sessions to 401 with sessionInvalid', async (context) => {
     assert.equal((await response.json()).sessionInvalid, true);
 });
 
+test('reuses a warm connection across sends', async (context) => {
+    let connects = 0;
+    let disconnects = 0;
+    const fakeClient = {
+        async connect() { connects += 1; },
+        async getEntity(id) { return { id }; },
+        async sendMessage() { return { id: 7 }; },
+        async disconnect() { disconnects += 1; },
+    };
+    const { baseUrl, headers } = await startTestServer(context, fakeClient);
+    const payload = { session: 'sessao-quente', chatId: '-1', message: 'Oi' };
+
+    for (let i = 0; i < 2; i++) {
+        const response = await fetch(`${baseUrl}/v1/messages/send`, {
+            method: 'POST', headers, body: JSON.stringify(payload),
+        });
+        assert.equal(response.status, 200);
+    }
+
+    assert.equal(connects, 1);
+    assert.equal(disconnects, 0);
+});
+
+test('retries once on transport errors with a fresh connection', async (context) => {
+    let connects = 0;
+    let sends = 0;
+    const fakeClient = {
+        async connect() { connects += 1; },
+        async getEntity(id) { return { id }; },
+        async sendMessage() {
+            sends += 1;
+            if (sends === 1) {
+                const error = new Error('socket closed');
+                error.errorMessage = 'CONNECTION_CLOSED';
+                throw error;
+            }
+            return { id: 9 };
+        },
+        async disconnect() {},
+    };
+    const { baseUrl, headers } = await startTestServer(context, fakeClient);
+
+    const response = await fetch(`${baseUrl}/v1/messages/send`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session: 'sessao-instavel', chatId: '-1', message: 'Oi' }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true, messageId: 9 });
+    assert.equal(connects, 2);
+});
+
 test('logs out a stored session', async (context) => {
     let loggedOut = false;
     const fakeClient = {

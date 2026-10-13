@@ -27,7 +27,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
 
-        // Integração Socialite · provider Telegram (AgendaFácil).
+        // Integração Socialite · provider Telegram.
         // O listener handle() registra o Provider correto (que estende AbstractProvider).
         Event::listen(SocialiteWasCalled::class, TelegramExtendSocialite::class.'@handle');
 

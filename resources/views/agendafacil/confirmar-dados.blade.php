@@ -38,7 +38,13 @@
             <p class="font-bold mb-2 text-slate-800 text-sm">{{ $telegramUser['firstName'] ?? '—' }}{{ ! empty($telegramUser['username']) ? ' (@' . $telegramUser['username'] . ')' : '' }}</p>
 
             <p class="text-slate-500 text-xs mb-0">Grupo</p>
-            <p class="font-bold mb-2 text-slate-800 text-sm">{{ $grupo['nome'] }} <small class="text-slate-500">({{ $grupo['tipo'] === 'supergroup' ? 'Supergrupo' : 'Grupo' }})</small></p>
+            <p class="font-bold mb-2 text-slate-800 text-sm">{{ $grupo['nome'] }} <small class="text-slate-500">({{ $grupo['tipo'] === 'supergroup' ? 'Supergrupo' : 'Grupo' }})</small>
+                <span class="inline-block ml-1 px-2 py-0.5 rounded-full text-xs font-bold {{ ($grupo['modo'] ?? 'aberto') === 'fechado' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800' }}">{{ ($grupo['modo'] ?? 'aberto') === 'fechado' ? '🔒 Fechado' : '🔓 Aberto' }}</span>
+            </p>
+            @if (($grupo['modo'] ?? 'aberto') === 'fechado' && ! empty($grupo['horario_disparo']))
+                <p class="text-slate-500 text-xs mb-0">Disparo em bloco</p>
+                <p class="font-bold mb-2 text-slate-800 text-sm">Sai às {{ $grupo['horario_disparo'] }}</p>
+            @endif
 
             <p class="text-slate-500 text-xs mb-0">Data e horário</p>
             @php

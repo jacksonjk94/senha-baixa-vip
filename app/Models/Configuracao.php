@@ -23,6 +23,10 @@ class Configuracao extends Model
 
     public const AGENDAMENTO_MODO = 'agendamento_modo'; // producao|teste
 
+    public const DISPARO_LATENCIA_ATIVO = 'disparo_latencia_ativo'; // 1|0
+
+    public const DISPARO_LATENCIA_MS = 'disparo_latencia_ms'; // ms medidos
+
     /**
      * Lê uma configuração (com defaults sensatos).
      */
@@ -57,5 +61,21 @@ class Configuracao extends Model
         $valor = (string) static::get(static::DISPARO_HORARIO, '08:00');
 
         return preg_match('/^\d{2}:\d{2}$/', $valor) ? $valor : '08:00';
+    }
+
+    /**
+     * Disparos com latência/antecedência: habilitado por padrão.
+     */
+    public static function latenciaAtiva(): bool
+    {
+        return static::get(static::DISPARO_LATENCIA_ATIVO, '1') !== '0';
+    }
+
+    /**
+     * Latência medida do disparo (ms). Limites 0–10000.
+     */
+    public static function latenciaMs(): int
+    {
+        return max(0, min(10000, (int) static::get(static::DISPARO_LATENCIA_MS, '250')));
     }
 }

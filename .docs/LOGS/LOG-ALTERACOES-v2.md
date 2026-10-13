@@ -33,6 +33,7 @@ Projeto em Laravel · Curitiba/PR · 2026
 | 26/09/2026 | 3.2.4 | UX mensagem | ✅ Visitante digita só o nome (sem exibir `xN`): sufixo digitado é removido, sistema numera na confirmação (`proximaSenhaNumero`); prévia na tag do resumo; validação sem regex | OpenCode (Muse Spark) |
 | 06/10/2026 | 3.3.0 | MTProto pessoal | 🔶 Teleproto, consentimento, código/2FA e listagem de grupos/supergrupos; testes automatizados OK, autenticação real pendente | GitHub Copilot |
 | 07/10/2026 | 4.0.0 | Fluxo | ✅ Fluxo unificado substituído pelo v3.4.0 do `CHANGELOG.md`: /acesso agora começa por Telefone (retorno por 4 dígitos ou telefone completo +55), código MTProto direto na etapa 2, Grupo vem da conta MTProto, Horário e Confirmação separados | OpenCode |
+| 12/10/2026 | 4.2.0 | Disparo MTProto + precisão | ✅ Disparos pela sessão MTProto guardada (`TelegramDisparoService`: conta → bot fallback); sessão salva no fluxo do código; conexão Node aquecida; espera até o :00 menos latência medida (250ms, admin "Disparos com latência/antecedência" ligado por padrão); `disparos-cron` dispara adiantado; endpoint `GET /api/n8n/disparos/precisao` — ver detalhes abaixo | OpenCode (Muse Spark) |
 
 ## ✅ v4.0.0 — Fluxo unificado substituído (07/10/2026)
 
@@ -52,6 +53,14 @@ Projeto em Laravel · Curitiba/PR · 2026
 - **Validação automatizada**: `php artisan test` — 52 aprovados; `npm test` em `services/telegram-mtproto` — 3 aprovados; `php artisan view:cache` OK; `route:list --path=telegram` OK. Autenticação contra uma conta real do Telegram permanece pendente de teste local autorizado.
 
 ---
+
+## ✅ v4.2.0 — Disparos via MTProto com precisão de segundo (12/10/2026)
+
+- **Canal de envio**: `TelegramDisparoService` tenta a sessão MTProto guardada (dono do agendamento → dono do grupo) e recai no bot só sem sessão; sessão revogada é limpa sozinha. `EnviarSenhaTelegram` e `N8nDisparoController` usam o serviço; erro prefixado com `[chat …]`.
+- **Guarda da sessão**: `AcessoController::verificarCodigo` salva a sessão no usuário (ou pendente na sessão web e persistida no `confirmarResumo`); `TelegramValidacaoController` idem no fluxo do widget. Migration `000021` (`telegram_mtproto_session` criptografada + telefone + conectado_em).
+- **Medição**: 5 envios MTProto reais no grupo de teste via localhost: 267–403ms (média 310ms); via Cloudflare: 499–909ms (túnel somava ~0,5s) — `.env` local trocado para `http://127.0.0.1:3037`. Bot API com token 401 (só MTProto operacional).
+- **Precisão**: conexão Node aquecida entre envios (idle 2min, retry 1× em falha de transporte); worker segura até `alvo(:00) − latência` (`time_sleep_until`, janela `DISPARO_ANTECIPACAO_SEGUNDOS`, re-checagem anti-duplo). Admin → Config. disparos: **"Disparos com latência/antecedência" ligado por padrão** + latência em ms (padrão 250ms medidos). `services/disparos-cron/server.js` lê `GET /api/n8n/disparos/precisao` (5min) e dispara o gatilho adiantado pela latência.
+- **Testes**: `N8nDisparoTest` 12/12, `MtprotoDisparoTest` 6/6, `telegram-mtproto` 9/9, `disparos-cron` 3/3.
 
 ## 🔄 Próximas Implementações
 
