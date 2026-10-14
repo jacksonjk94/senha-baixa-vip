@@ -11,16 +11,12 @@
     },
     "routes": [
         {
-            "src": "/favicon.ico",
-            "dest": "/public/favicon.ico"
+            "src": "/favicon.svg",
+            "dest": "/public/favicon.svg"
         },
         {
             "src": "/assets/images(.*)",
             "dest": "/public/assets/images/"
-        },
-        {
-            "src": "/app-tomac.apk",
-            "dest": "/public/app-tomac.apk"
         },
         {
             "src": "/Terminal.php",
@@ -42,7 +38,7 @@
     "env": {
         "APP_ENV": "local",
         "APP_DEBUG": "true",
-        "APP_URL": "https://agendafacil-teste.vercel.app",
+        "APP_URL": "https://senhabaixavip.vercel.app",
 
         "APP_CONFIG_CACHE": "/tmp/config.php",
         "APP_EVENTS_CACHE": "/tmp/events.php",
