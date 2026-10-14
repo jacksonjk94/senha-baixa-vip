@@ -11,13 +11,22 @@
 </div>
 
 <h2 class="h6 mt-4">Agendamentos recentes</h2>
+<style>
+    .af-avatar-sm { position: relative; width: 32px; height: 32px; flex-shrink: 0; display: inline-block; vertical-align: middle; margin-right: 8px; }
+    .af-avatar-sm .af-inicial { position: absolute; inset: 0; border-radius: 999px; background: #1E3A8A; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    .af-avatar-sm img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 999px; object-fit: cover; background: #E2E8F0; }
+</style>
 <div class="card stat-card"><div class="card-body p-0"><div class="af-table-wrap">
 <table class="table mb-0">
     <thead><tr><th>Visitante</th><th>Destino</th><th>Envio</th><th>Status</th></tr></thead>
     <tbody id="recentesBody">
     @forelse ($recentes as $a)
+        @php
+            $nomeVisitante = $a->nome_visitante ?? $a->texto;
+            $fotoVisitante = $a->user && filled($a->user->telegram_id) ? route('admin.telegram.foto.visitante', $a->user) : null;
+        @endphp
         <tr>
-            <td data-label="Visitante">{{ $a->nome_visitante ?? $a->texto }} <small class="text-muted">{{ $a->senha_codigo ?? ('pos. ' . ($a->posicao ?? '—')) }}</small></td>
+            <td data-label="Visitante"><span class="af-avatar-sm"><span class="af-inicial">{{ \Illuminate\Support\Str::substr((string) $nomeVisitante, 0, 1) }}</span>@if ($fotoVisitante)<img src="{{ $fotoVisitante }}" alt="" loading="lazy" onerror="this.remove()">@endif</span>{{ $nomeVisitante }} <small class="text-muted">{{ $a->senha_codigo ?? ('pos. ' . ($a->posicao ?? '—')) }}</small></td>
             <td data-label="Destino">{{ $a->destino_nome }}</td>
             <td data-label="Envio">{{ $a->data_hora_envio?->format('d/m H:i') }}</td>
             <td data-label="Status"><span class="badge-tg badge-{{ $a->status }}">{{ strtoupper($a->status) }}</span></td>
@@ -49,8 +58,12 @@
                     return;
                 }
                 body.innerHTML = d.recentes.map(function (a) {
+                    var nome = String(a.visitante == null ? '' : a.visitante);
+                    var avatar = '<span class="af-avatar-sm"><span class="af-inicial">' + esc(nome.charAt(0)) + '</span>'
+                        + (a.foto ? '<img src="' + esc(a.foto) + '" alt="" loading="lazy" onerror="this.remove()">' : '')
+                        + '</span>';
                     return '<tr>'
-                        + '<td data-label="Visitante">' + esc(a.visitante) + ' <small class="text-muted">' + esc(a.codigo) + '</small></td>'
+                        + '<td data-label="Visitante">' + avatar + esc(nome) + ' <small class="text-muted">' + esc(a.codigo) + '</small></td>'
                         + '<td data-label="Destino">' + esc(a.destino) + '</td>'
                         + '<td data-label="Envio">' + esc(a.envio) + '</td>'
                         + '<td data-label="Status"><span class="badge-tg badge-' + esc(a.status) + '">' + esc(String(a.status).toUpperCase()) + '</span></td>'

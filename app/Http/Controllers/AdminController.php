@@ -44,6 +44,9 @@ class AdminController extends Controller
                 'destino' => $a->destino_nome,
                 'envio' => $a->data_hora_envio?->format('d/m H:i'),
                 'status' => $a->status,
+                'foto' => $a->user && filled($a->user->telegram_id)
+                    ? route('admin.telegram.foto.visitante', $a->user)
+                    : null,
             ]),
         ]);
     }

@@ -24,6 +24,33 @@ class ManualTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_visao_geral_exibe_foto_do_visitante(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $visitante = User::factory()->create(['role' => 'user', 'name' => 'Luana', 'telegram_id' => '999001']);
+        \App\Models\Agendamento::factory()->create([
+            'user_id' => $visitante->id,
+            'nome_visitante' => 'Luana',
+            'texto' => 'Luana',
+        ]);
+
+        $resposta = $this->actingAs($admin)->get(route('admin.inicio'));
+
+        $resposta->assertOk();
+        $resposta->assertSee('af-avatar-sm', false);
+        $resposta->assertSee('/admin/telegram/foto/visitante/' . $visitante->uuid, false);
+    }
+
+    public function test_foto_do_visitante_exige_telegram_id(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $semTelegram = User::factory()->create(['role' => 'user', 'telegram_id' => null]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.telegram.foto.visitante', $semTelegram))
+            ->assertNotFound();
+    }
+
     public function test_manual_abre_para_admin_com_conteudo(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

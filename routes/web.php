@@ -131,6 +131,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::post('/telegram-bots/{bot}/padrao', [TelegramBotsController::class, 'setDefault'])->name('admin.telegram-bots.padrao');
     Route::patch('/telegram-bots/{bot}/alternar', [TelegramBotsController::class, 'toggle'])->name('admin.telegram-bots.alternar');
     Route::get('/manual', [ManualController::class, 'index'])->name('admin.manual');
+    Route::get('/telegram/foto/visitante/{visitante}', [TelegramFotoController::class, 'visitante'])->name('admin.telegram.foto.visitante');
 });
 
 Route::middleware([
