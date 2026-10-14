@@ -53,5 +53,9 @@
         "QUEUE_CONNECTION": "sync",
         "SESSION_DRIVER": "database",
         "SESSION_LIFETIME": "120"
-    }
+    },
+    "crons": [{
+        "path": "/api/cron",
+        "schedule": "0 10 * * *"
+    }]
 }
