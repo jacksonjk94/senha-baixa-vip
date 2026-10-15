@@ -47,7 +47,50 @@ class AdminController extends Controller
                 'foto' => $a->user && filled($a->user->telegram_id)
                     ? route('admin.telegram.foto.visitante', $a->user)
                     : null,
+                'tem_contexto' => filled($a->telegram_message_id) || filled($a->contexto_grupo),
+                'contexto_url' => (filled($a->telegram_message_id) || filled($a->contexto_grupo))
+                    ? route('admin.disparos.contexto', $a)
+                    : null,
             ]),
+        ]);
+    }
+
+    /**
+     * Posição da mensagem no grupo para o modal (tempo real quando há
+     * sessão da conta; senão, o retrato guardado no envio).
+     */
+    public function contexto(Agendamento $agendamento, \App\Services\TelegramDisparoService $disparo)
+    {
+        $agendamento->loadMissing('user', 'grupo');
+
+        $live = $disparo->contextoAtual($agendamento);
+
+        if ($live['ok'] && filled($live['mensagens'])) {
+            return response()->json([
+                'ok' => true,
+                'ao_vivo' => true,
+                'posicao' => $live['posicao'],
+                'message_id' => $agendamento->telegram_message_id,
+                'total' => count($live['mensagens']),
+                'mensagens' => $live['mensagens'],
+            ]);
+        }
+
+        $retrato = is_array($agendamento->contexto_grupo) ? $agendamento->contexto_grupo : null;
+        $mensagens = $retrato['mensagens'] ?? null;
+
+        if (! is_array($mensagens) || $mensagens === []) {
+            return response()->json(['erro' => 'Sem mensagens capturadas para este disparo.'], 404);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'ao_vivo' => false,
+            'posicao' => $retrato['posicao'] ?? $agendamento->posicao_grupo,
+            'message_id' => $agendamento->telegram_message_id,
+            'total' => count($mensagens),
+            'capturado_em' => $retrato['capturado_em'] ?? null,
+            'mensagens' => array_values($mensagens),
         ]);
     }
 

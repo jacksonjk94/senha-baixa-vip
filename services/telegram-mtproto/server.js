@@ -142,6 +142,19 @@ function validChatId(value) {
     return typeof value === 'string' && /^-?\d{1,20}$/.test(value.trim());
 }
 
+function ordenarMensagens(lista, limit) {
+    return (Array.isArray(lista) ? lista : [])
+        .filter((m) => m && typeof m.id !== 'undefined')
+        .sort((a, b) => (Number(b.date) || 0) - (Number(a.date) || 0))
+        .slice(0, limit)
+        .map((m) => ({
+            id: String(m.id),
+            texto: String(m.message ?? '').slice(0, 200),
+            data: m.date ?? null,
+            saida: m.out === true,
+        }));
+}
+
 function errorResponse(error) {
     switch (error?.errorMessage) {
         case 'PHONE_NUMBER_INVALID':
@@ -466,6 +479,57 @@ export function createTelegramMtprotoServer({
                         const entity = await retry.getEntity(Number(chatId));
                         const sent = await retry.sendMessage(entity, { message });
                         return responseJson(response, 200, { ok: true, messageId: sent?.id ?? null });
+                    } catch (retryError) {
+                        await dropSender(session);
+                        const [retryStatus, retryMessage, retryInvalid] = sendErrorResponse(retryError);
+                        return responseJson(response, retryStatus, { message: retryMessage, sessionInvalid: retryInvalid });
+                    }
+                }
+
+                const [status, errorMessage, sessionInvalid] = sendErrorResponse(error);
+                return responseJson(response, status, { message: errorMessage, sessionInvalid });
+            }
+        }
+
+        if (url.pathname === '/v1/messages/history') {
+            const session = typeof body.session === 'string' ? body.session : '';
+            const chatId = typeof body.chatId === 'string' ? body.chatId.trim() : '';
+            const limit = Math.max(1, Math.min(30, Number(body.limit) || 10));
+
+            if (session === '') {
+                return responseJson(response, 422, { message: 'Sessão do Telegram ausente. Autorize a conta novamente.', sessionInvalid: true });
+            }
+            if (!validChatId(chatId)) {
+                return responseJson(response, 422, { message: 'Chat de destino inválido.' });
+            }
+
+            let client;
+            try {
+                client = await senderClient(session);
+            } catch (error) {
+                const [status, errorMessage, sessionInvalid] = sendErrorResponse(error);
+                return responseJson(response, status, { message: errorMessage, sessionInvalid });
+            }
+
+            try {
+                const entity = await client.getEntity(Number(chatId));
+                const raw = await client.getMessages(entity, { limit });
+                const list = Array.isArray(raw) ? raw : (raw?.messages ?? []);
+                // Ordem canônica: mais recentes primeiro (a biblioteca não
+                // garante a ordem) — a posição é contada a partir daí.
+                const mensagens = ordenarMensagens(list, limit);
+                return responseJson(response, 200, { ok: true, mensagens });
+            } catch (error) {
+                await dropSender(session);
+
+                if (isTransportError(error)) {
+                    try {
+                        const retry = await senderClient(session);
+                        const entity = await retry.getEntity(Number(chatId));
+                        const raw = await retry.getMessages(entity, { limit });
+                        const list = Array.isArray(raw) ? raw : (raw?.messages ?? []);
+                        const mensagens = ordenarMensagens(list, limit);
+                        return responseJson(response, 200, { ok: true, mensagens });
                     } catch (retryError) {
                         await dropSender(session);
                         const [retryStatus, retryMessage, retryInvalid] = sendErrorResponse(retryError);

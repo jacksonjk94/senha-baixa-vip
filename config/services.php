@@ -54,6 +54,12 @@ return [
         'secret' => env('N8N_WORKER_SECRET'),
     ],
 
+    // Cron da Vercel: envia `Authorization: Bearer $CRON_SECRET`
+    // automaticamente (sem header custom). Vale para processar/precisao.
+    'cron' => [
+        'secret' => env('CRON_SECRET'),
+    ],
+
     'disparo' => [
         // Janela (segundos) para buscar disparos antes da hora e segurar o
         // envio até o :00.000 exato do minuto. 0 = envia ao vencer (padrão;

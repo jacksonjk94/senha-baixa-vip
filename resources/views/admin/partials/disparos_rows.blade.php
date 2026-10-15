@@ -7,6 +7,9 @@
             <td data-label="Envio">{{ $a->data_hora_envio?->format('d/m/Y H:i') }}</td>
             <td data-label="Status"><span class="badge-tg badge-{{ $a->status }}">{{ strtoupper($a->status) }}</span></td>
             <td class="d-flex gap-1 af-cell-actions">
+                @if ($a->telegram_message_id || $a->contexto_grupo)
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-contexto-url="{{ route('admin.disparos.contexto', $a) }}">👁 Posição</button>
+                @endif
                 @if (in_array($a->status, ['pendente', 'erro']))
                     <form method="POST" action="{{ route('admin.reenviar', $a) }}">@csrf<button class="btn btn-sm btn-outline-primary">↻ Reenviar</button></form>
                     <form method="POST" action="{{ route('admin.cancelar', $a) }}">@csrf @method('PATCH')<button class="btn btn-sm btn-outline-danger" onclick="return confirm('Cancelar este agendamento?')">✕ Cancelar</button></form>

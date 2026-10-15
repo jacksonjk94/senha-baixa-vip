@@ -144,6 +144,46 @@ class N8nDisparoTest extends TestCase
         );
     }
 
+    public function test_cron_vercel_com_bearer_processa_e_le_precisao(): void
+    {
+        config(['services.n8n.secret' => 'segredo-n8n', 'services.cron.secret' => 'segredo-cron']);
+
+        Http::fake([
+            'https://api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]], 200),
+        ]);
+
+        $grupo = GrupoTelegram::create([
+            'nome' => 'Grupo Aberto', 'chat_id' => '-100200015', 'tipo' => 'supergroup',
+            'modo' => 'aberto', 'ativo' => true,
+        ]);
+        Agendamento::factory()->create([
+            'grupo_telegram_id' => $grupo->id,
+            'texto' => 'Vencido x1',
+            'destino_tipo' => 'grupo',
+            'destino_id' => $grupo->chat_id,
+            'data_hora_envio' => now('America/Sao_Paulo')->subMinutes(5),
+            'status' => Agendamento::STATUS_PENDENTE,
+        ]);
+
+        $this->withHeaders(['Authorization' => 'Bearer segredo-cron'])
+            ->getJson(route('n8n.disparos.precisao'))
+            ->assertOk()
+            ->assertJsonStructure(['latencia_ativa', 'latencia_ms', 'antecipacao_segundos']);
+
+        $this->withHeaders(['Authorization' => 'Bearer segredo-cron'])
+            ->getJson(route('n8n.disparos.processar'))
+            ->assertOk()
+            ->assertJsonPath('enviados', 1);
+    }
+
+    public function test_bearer_errado_retorna_403(): void
+    {
+        config(['services.n8n.secret' => 'segredo-n8n', 'services.cron.secret' => 'segredo-cron']);
+
+        $this->withHeaders(['Authorization' => 'Bearer errada'])
+            ->getJson(route('n8n.disparos.processar'))
+            ->assertForbidden();
+    }
     public function test_precisao_exige_chave_secreta(): void
     {
         $this->getJson(route('n8n.disparos.precisao'))

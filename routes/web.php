@@ -108,6 +108,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::patch('/usuarios/{usuario}', [AdminController::class, 'atualizarUsuario'])->name('admin.usuarios.atualizar');
     Route::delete('/usuarios/{usuario}', [AdminController::class, 'excluirUsuario'])->name('admin.usuarios.excluir');
     Route::get('/disparos', [AdminController::class, 'disparos'])->name('admin.disparos');
+    Route::get('/disparos/{agendamento}/contexto', [AdminController::class, 'contexto'])->name('admin.disparos.contexto');
     Route::get('/grupos', [AdminController::class, 'grupos'])->name('admin.grupos');
     Route::get('/grupos/dados', [AdminController::class, 'dadosGrupos'])->name('admin.grupos.dados');
     Route::post('/grupos', [AdminController::class, 'armazenarGrupo'])->name('admin.grupos.salvar');

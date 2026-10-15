@@ -1,0 +1,46 @@
+# SenhaBaixa VIP — telegram-mtproto para importação direta por URL
+# (Hostinger VPS → Gerenciador Docker → Compose → colar a URL deste arquivo).
+#
+# URL (raw, após commit + push):
+#   https://raw.githubusercontent.com/jacksonjk94/senha-baixa-vip/main/services/telegram-mtproto/docker-compose.hostinger.yml
+#
+# No painel, preencha as variáveis (valores do .env do Laravel — NÃO commitar):
+#   TELEGRAM_API_ID               → API ID do Telegram
+#   TELEGRAM_API_HASH             → API Hash do Telegram
+#   TELEGRAM_MTPROTO_SERVICE_TOKEN → MESMO valor do Laravel
+#   TELEGRAM_MTPROTO_PORT         → 3037 (opcional)
+#   TZ                            → America/Sao_Paulo (opcional)
+#
+# O build usa o próprio GitHub (contexto remoto) — dispensa registry/imagem.
+# Após subir: curl http://IP-DA-VPS:3037/health  (esperado: {"ok":true})
+# Depois aponte o TELEGRAM_MTPROTO_URL do Laravel para http://IP-DA-VPS:3037
+# e libere a porta 3037 no firewall da VPS.
+
+services:
+  telegram-mtproto:
+    build:
+      context: https://github.com/jacksonjk94/senha-baixa-vip.git#main:services/telegram-mtproto
+      dockerfile: Dockerfile
+    image: senha-baixa-vip-telegram-mtproto:latest
+    container_name: senha-baixa-vip-mtproto
+    restart: unless-stopped
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:?defina TELEGRAM_API_ID no painel}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:?defina TELEGRAM_API_HASH no painel}
+      TELEGRAM_MTPROTO_HOST: 0.0.0.0
+      TELEGRAM_MTPROTO_PORT: ${TELEGRAM_MTPROTO_PORT:-3037}
+      TELEGRAM_MTPROTO_SERVICE_TOKEN: ${TELEGRAM_MTPROTO_SERVICE_TOKEN:?defina TELEGRAM_MTPROTO_SERVICE_TOKEN no painel}
+      TZ: ${TZ:-America/Sao_Paulo}
+    ports:
+      - "${TELEGRAM_MTPROTO_PORT:-3037}:3037"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3037/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

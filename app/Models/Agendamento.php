@@ -30,6 +30,9 @@ class Agendamento extends Model
         'destino_tipo',
         'destino_id',
         'destino_nome',
+        'telegram_message_id',
+        'posicao_grupo',
+        'contexto_grupo',
         'data_hora_envio',
         'status',
         'mensagem_erro',
@@ -40,6 +43,7 @@ class Agendamento extends Model
     protected $casts = [
         'data_hora_envio' => 'datetime',
         'enviado_em' => 'datetime',
+        'contexto_grupo' => 'array',
     ];
 
     public function user(): BelongsTo

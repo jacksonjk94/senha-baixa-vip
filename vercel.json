@@ -52,10 +52,11 @@
         "LOG_PATH": "/tmp/laravel.log",
         "QUEUE_CONNECTION": "sync",
         "SESSION_DRIVER": "database",
-        "SESSION_LIFETIME": "120"
+        "SESSION_LIFETIME": "120",
+        "DISPARO_ANTECIPACAO_SEGUNDOS": "0"
     },
     "crons": [{
-        "path": "/api/cron",
-        "schedule": "0 10 * * *"
+        "path": "/api/n8n/disparos/processar",
+        "schedule": "* * * * *"
     }]
 }

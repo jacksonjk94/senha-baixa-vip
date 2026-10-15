@@ -284,6 +284,55 @@ test('retries once on transport errors with a fresh connection', async (context)
     assert.equal(connects, 2);
 });
 
+test('lists recent group messages for position lookup', async (context) => {
+    const fakeClient = {
+        async connect() {},
+        async getEntity(id) { return { id }; },
+        async getMessages(_entity, { limit }) {
+            assert.equal(limit, 10);
+            // Fora de ordem de propósito: o servidor ordena (recentes primeiro).
+            return [
+                { id: 101, message: 'manual antiga', date: 100, out: false },
+                { id: 103, message: 'manual nova', date: 300, out: false },
+                { id: 102, message: 'Minha senha', date: 200, out: true },
+            ];
+        },
+        async disconnect() {},
+    };
+    const { baseUrl, headers } = await startTestServer(context, fakeClient);
+
+    const response = await fetch(`${baseUrl}/v1/messages/history`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session: 'sessao-valida', chatId: '-5552808073', limit: 10 }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+        ok: true,
+        mensagens: [
+            { id: '103', texto: 'manual nova', data: 300, saida: false },
+            { id: '102', texto: 'Minha senha', data: 200, saida: true },
+            { id: '101', texto: 'manual antiga', data: 100, saida: false },
+        ],
+    });
+});
+
+test('history without session is rejected', async (context) => {
+    const fakeClient = {
+        async connect() { throw new Error('should not connect'); },
+        async disconnect() {},
+    };
+    const { baseUrl, headers } = await startTestServer(context, fakeClient);
+
+    const response = await fetch(`${baseUrl}/v1/messages/history`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session: '', chatId: '-1', limit: 10 }),
+    });
+    assert.equal(response.status, 422);
+    assert.equal((await response.json()).sessionInvalid, true);
+});
+
 test('logs out a stored session', async (context) => {
     let loggedOut = false;
     const fakeClient = {

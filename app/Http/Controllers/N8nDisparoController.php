@@ -27,14 +27,28 @@ use Illuminate\Http\Request;
  */
 class N8nDisparoController extends Controller
 {
+    /**
+     * Autorização do worker (fail closed): chave `X-N8N-Secret` (n8n ou
+     * disparos-cron local) OU Bearer `CRON_SECRET` (cron da Vercel, que
+     * não envia headers custom).
+     */
+    protected function autorizadoWorker(Request $request): bool
+    {
+        $esperado = (string) config('services.n8n.secret', '');
+
+        if ($esperado !== '' && hash_equals($esperado, (string) $request->header('X-N8N-Secret', ''))) {
+            return true;
+        }
+
+        $cron = (string) config('services.cron.secret', '');
+        $bearer = (string) ($request->bearerToken() ?? '');
+
+        return $cron !== '' && $bearer !== '' && hash_equals($cron, $bearer);
+    }
+
     public function processar(Request $request, TelegramDisparoService $disparo): JsonResponse
     {
-        // 🔒 Autorização por chave secreta (comparação em tempo constante;
-        // sem segredo configurado, nega tudo — fail closed).
-        $esperado = (string) config('services.n8n.secret', '');
-        $recebido = (string) $request->header('X-N8N-Secret', '');
-
-        if ($esperado === '' || ! hash_equals($esperado, $recebido)) {
+        if (! $this->autorizadoWorker($request)) {
             return response()->json(['erro' => 'Acesso negado'], 403);
         }
 
@@ -152,6 +166,9 @@ class N8nDisparoController extends Controller
                     'posicao' => $posicao,
                     'total_grupo_horario' => $total,
                     'mensagem_erro' => null,
+                    'telegram_message_id' => $envio['message_id'] ?? null,
+                    'posicao_grupo' => $envio['posicao_grupo'] ?? null,
+                    'contexto_grupo' => $envio['contexto'] ?? null,
                 ]);
                 $enviados++;
             } else {
@@ -181,10 +198,7 @@ class N8nDisparoController extends Controller
      */
     public function precisao(Request $request): JsonResponse
     {
-        $esperado = (string) config('services.n8n.secret', '');
-        $recebido = (string) $request->header('X-N8N-Secret', '');
-
-        if ($esperado === '' || ! hash_equals($esperado, $recebido)) {
+        if (! $this->autorizadoWorker($request)) {
             return response()->json(['erro' => 'Acesso negado'], 403);
         }
 

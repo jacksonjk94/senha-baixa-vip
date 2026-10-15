@@ -27,6 +27,11 @@ class EnviarSenhaTelegram implements ShouldQueue
 
         if ($resultado['ok']) {
             $agendamento->marcarComoEnviado();
+            $agendamento->forceFill([
+                'telegram_message_id' => $resultado['message_id'] ?? null,
+                'posicao_grupo' => $resultado['posicao_grupo'] ?? null,
+                'contexto_grupo' => $resultado['contexto'] ?? null,
+            ])->save();
         } else {
             $mensagem = is_string($resultado['resposta'])
                 ? $resultado['resposta']

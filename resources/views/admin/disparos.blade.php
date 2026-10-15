@@ -21,6 +21,8 @@
 </div></div></div>
 <div class="mt-3">{{ $agendamentos->links() }}</div>
 
+@include('admin.partials.contexto_modal')
+
 <script>
     (function () {
         function ids(doc) {

@@ -29,7 +29,7 @@
             <td data-label="Visitante"><span class="af-avatar-sm"><span class="af-inicial">{{ \Illuminate\Support\Str::substr((string) $nomeVisitante, 0, 1) }}</span>@if ($fotoVisitante)<img src="{{ $fotoVisitante }}" alt="" loading="lazy" onerror="this.remove()">@endif</span>{{ $nomeVisitante }} <small class="text-muted">{{ $a->senha_codigo ?? ('pos. ' . ($a->posicao ?? '—')) }}</small></td>
             <td data-label="Destino">{{ $a->destino_nome }}</td>
             <td data-label="Envio">{{ $a->data_hora_envio?->format('d/m H:i') }}</td>
-            <td data-label="Status"><span class="badge-tg badge-{{ $a->status }}">{{ strtoupper($a->status) }}</span></td>
+            <td data-label="Status"><span class="badge-tg badge-{{ $a->status }}">{{ strtoupper($a->status) }}</span>@if ($a->telegram_message_id || $a->contexto_grupo)<br><button type="button" class="btn btn-sm btn-outline-primary mt-1" data-contexto-url="{{ route('admin.disparos.contexto', $a) }}">👁 Posição</button>@endif</td>
         </tr>
     @empty
         <tr><td colspan="4" class="text-center text-muted">Nenhum registro.</td></tr>
@@ -66,7 +66,9 @@
                         + '<td data-label="Visitante">' + avatar + esc(nome) + ' <small class="text-muted">' + esc(a.codigo) + '</small></td>'
                         + '<td data-label="Destino">' + esc(a.destino) + '</td>'
                         + '<td data-label="Envio">' + esc(a.envio) + '</td>'
-                        + '<td data-label="Status"><span class="badge-tg badge-' + esc(a.status) + '">' + esc(String(a.status).toUpperCase()) + '</span></td>'
+                        + '<td data-label="Status"><span class="badge-tg badge-' + esc(a.status) + '">' + esc(String(a.status).toUpperCase()) + '</span>'
+                        + (a.tem_contexto && a.contexto_url ? '<br><button type="button" class="btn btn-sm btn-outline-primary mt-1" data-contexto-url="' + esc(a.contexto_url) + '">👁 Posição</button>' : '')
+                        + '</td>'
                         + '</tr>';
                 }).join('');
             } catch (e) { /* ignora falhas de rede */ }
@@ -75,4 +77,5 @@
         setInterval(atualizar, 5000);
     })();
 </script>
+@include('admin.partials.contexto_modal')
 @endsection

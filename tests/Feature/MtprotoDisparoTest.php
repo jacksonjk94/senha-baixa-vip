@@ -54,7 +54,17 @@ class MtprotoDisparoTest extends TestCase
     public function test_envia_via_mtproto_quando_ha_sessao_guardada(): void
     {
         Http::fake([
-            'http://mtproto.test/*' => Http::response(['ok' => true, 'messageId' => 42], 200),
+            'http://mtproto.test/*' => function (\Illuminate\Http\Client\Request $request) {
+                if (str_contains($request->url(), '/v1/messages/history')) {
+                    return Http::response(['ok' => true, 'mensagens' => [
+                        ['id' => '103', 'texto' => 'manual nova', 'data' => 300, 'saida' => false],
+                        ['id' => '42', 'texto' => 'Visitante x1', 'data' => 200, 'saida' => true],
+                        ['id' => '101', 'texto' => 'manual antiga', 'data' => 100, 'saida' => false],
+                    ]], 200);
+                }
+
+                return Http::response(['ok' => true, 'messageId' => 42], 200);
+            },
             'https://api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]], 200),
         ]);
 
@@ -65,7 +75,12 @@ class MtprotoDisparoTest extends TestCase
 
         EnviarSenhaTelegram::dispatchSync($agendamento->id);
 
-        $this->assertSame(Agendamento::STATUS_ENVIADO, $agendamento->refresh()->status);
+        $agendamento->refresh();
+
+        $this->assertSame(Agendamento::STATUS_ENVIADO, $agendamento->status);
+        $this->assertSame('42', $agendamento->telegram_message_id);
+        $this->assertSame(2, (int) $agendamento->posicao_grupo);
+        $this->assertCount(3, $agendamento->contexto_grupo['mensagens'] ?? []);
 
         Http::assertSent(function ($request) use ($grupo) {
             return str_contains($request->url(), '/v1/messages/send')
@@ -175,5 +190,97 @@ class MtprotoDisparoTest extends TestCase
         Http::assertNotSent(function ($request) {
             return str_contains($request->url(), 'api.telegram.org');
         });
+    }
+
+    public function test_mtproto_fora_do_ar_recai_no_bot_mantendo_sessao(): void
+    {
+        // Porta discard: conexão recusada de verdade (sem fake que lance
+        // exceção — mais fiel ao serviço fora do ar).
+        config(['services.telegram_mtproto.url' => 'http://127.0.0.1:9']);
+
+        Http::fake([
+            'https://api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]], 200),
+        ]);
+
+        $usuario = User::factory()->create();
+        $usuario->guardarSessaoMtproto('sessao-valida-123', '+5511999999999');
+        $grupo = $this->grupoDe($usuario);
+        $agendamento = $this->agendamentoPara($usuario, $grupo);
+
+        EnviarSenhaTelegram::dispatchSync($agendamento->id);
+
+        $this->assertSame(Agendamento::STATUS_ENVIADO, $agendamento->refresh()->status);
+        $this->assertTrue($usuario->fresh()->mtprotoSessaoValida());
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), 'api.telegram.org');
+        });
+    }
+
+    protected function admin(): User
+    {
+        return User::factory()->create(['role' => 'admin']);
+    }
+
+    public function test_contexto_ao_vivo_mostra_posicao(): void
+    {
+        Http::fake([
+            'http://mtproto.test/*' => Http::response(['ok' => true, 'mensagens' => [
+                ['id' => '103', 'texto' => 'manual nova', 'data' => 300, 'saida' => false],
+                ['id' => '42', 'texto' => 'Visitante x1', 'data' => 200, 'saida' => true],
+            ]], 200),
+        ]);
+
+        $usuario = User::factory()->create();
+        $usuario->guardarSessaoMtproto('sessao-valida-123', '+5511999999999');
+        $grupo = $this->grupoDe($usuario);
+        $agendamento = $this->agendamentoPara($usuario, $grupo);
+        $agendamento->forceFill([
+            'status' => Agendamento::STATUS_ENVIADO,
+            'telegram_message_id' => '42',
+        ])->save();
+
+        $this->actingAs($this->admin())
+            ->getJson(route('admin.disparos.contexto', $agendamento))
+            ->assertOk()
+            ->assertJsonPath('ao_vivo', true)
+            ->assertJsonPath('posicao', 2)
+            ->assertJsonPath('total', 2);
+    }
+
+    public function test_contexto_usa_retrato_quando_sem_sessao(): void
+    {
+        $usuario = User::factory()->create();
+        $grupo = $this->grupoDe($usuario);
+        $agendamento = $this->agendamentoPara($usuario, $grupo);
+        $agendamento->forceFill([
+            'status' => Agendamento::STATUS_ENVIADO,
+            'telegram_message_id' => '42',
+            'posicao_grupo' => 1,
+            'contexto_grupo' => [
+                'capturado_em' => '2026-10-14 12:00:00',
+                'posicao' => 1,
+                'mensagens' => [
+                    ['id' => '42', 'texto' => 'Visitante x1', 'data' => 200, 'saida' => true],
+                ],
+            ],
+        ])->save();
+
+        $this->actingAs($this->admin())
+            ->getJson(route('admin.disparos.contexto', $agendamento))
+            ->assertOk()
+            ->assertJsonPath('ao_vivo', false)
+            ->assertJsonPath('posicao', 1);
+    }
+
+    public function test_contexto_404_sem_nada_capturado(): void
+    {
+        $usuario = User::factory()->create();
+        $grupo = $this->grupoDe($usuario);
+        $agendamento = $this->agendamentoPara($usuario, $grupo);
+        $agendamento->forceFill(['status' => Agendamento::STATUS_ENVIADO])->save();
+
+        $this->actingAs($this->admin())
+            ->getJson(route('admin.disparos.contexto', $agendamento))
+            ->assertNotFound();
     }
 }
