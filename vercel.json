@@ -54,9 +54,5 @@
         "SESSION_DRIVER": "database",
         "SESSION_LIFETIME": "120",
         "DISPARO_ANTECIPACAO_SEGUNDOS": "0"
-    },
-    "crons": [{
-        "path": "/api/n8n/disparos/processar",
-        "schedule": "* * * * *"
-    }]
+    }
 }
