@@ -16,12 +16,35 @@
 #   docker compose up -d --build
 #   curl http://127.0.0.1:3037/health   # esperado: {"ok":true}
 #
-# Depois aponte o TELEGRAM_MTPROTO_URL do Laravel para http://IP-DA-VPS:3037
-# e libere a porta 3037 no firewall da VPS (o token autentica as chamadas).
+# Depois aponte o TELEGRAM_MTPROTO_URL do Laravel para https://srv836395.hstgr.cloud
+# (HTTPS via Caddy, sem porta) e libere as portas 80, 443 e 3037 no firewall
+# da VPS + painel hPanel. A porta 3037 direta continua aberta como fallback
+# HTTP (autenticada pelo token); para FORÇAR só-HTTPS, comente o bloco
+# `ports:` do serviço telegram-mtproto abaixo e suba de novo.
 
 name: senha-baixa-vip-mtproto
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: senha-baixa-vip-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - telegram-mtproto
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   telegram-mtproto:
     build:
       context: https://github.com/jacksonjk94/senha-baixa-vip.git#main:services/telegram-mtproto
@@ -49,3 +72,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:
