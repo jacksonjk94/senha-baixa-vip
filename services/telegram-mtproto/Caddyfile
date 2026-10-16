@@ -1,7 +1,0 @@
-# Caddy — proxy reverso com HTTPS automático (Let's Encrypt) para o mtproto.
-# O certificado é emitido por desafio HTTP na porta 80, por isso as portas
-# 80 e 443 precisam estar liberadas no firewall da VPS e no painel hPanel.
-# Porta interna do mtproto: 3037 (NÃO mude TELEGRAM_MTPROTO_PORT ao usar o Caddy).
-srv836395.hstgr.cloud {
-	reverse_proxy telegram-mtproto:3037
-}

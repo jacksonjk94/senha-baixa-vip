@@ -17,34 +17,17 @@
 #   curl http://127.0.0.1:3037/health   # esperado: {"ok":true}
 #
 # Depois aponte o TELEGRAM_MTPROTO_URL do Laravel para https://srv836395.hstgr.cloud
-# (HTTPS via Caddy, sem porta) e libere as portas 80, 443 e 3037 no firewall
-# da VPS + painel hPanel. A porta 3037 direta continua aberta como fallback
-# HTTP (autenticada pelo token); para FORÇAR só-HTTPS, comente o bloco
-# `ports:` do serviço telegram-mtproto abaixo e suba de novo.
+# (HTTPS via Traefik embutido da Hostinger, sem porta). Pré-requisitos na VPS:
+#   - portas 80 e 443 liberadas (ufw + firewall do hPanel) p/ o desafio HTTP
+#     do Let's Encrypt;
+#   - descobrir a rede do Traefik: docker inspect traefik-traefik-1
+#     (padrão: traefik_default; se for outra, exporte TRAEFIK_NETWORK=<nome>
+#     ou adicione no .env antes do up).
+# Para voltar ao HTTP direto temporariamente, descomente o bloco `ports:` abaixo.
 
 name: senha-baixa-vip-mtproto
 
 services:
-  caddy:
-    image: caddy:2-alpine
-    container_name: senha-baixa-vip-caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - telegram-mtproto
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   telegram-mtproto:
     build:
       context: https://github.com/jacksonjk94/senha-baixa-vip.git#main:services/telegram-mtproto
@@ -59,8 +42,18 @@ services:
       TELEGRAM_MTPROTO_PORT: ${TELEGRAM_MTPROTO_PORT:-3037}
       TELEGRAM_MTPROTO_SERVICE_TOKEN: ${TELEGRAM_MTPROTO_SERVICE_TOKEN:?defina TELEGRAM_MTPROTO_SERVICE_TOKEN no painel}
       TZ: ${TZ:-America/Sao_Paulo}
-    ports:
-      - "${TELEGRAM_MTPROTO_PORT:-3037}:3037"
+    # Direto HTTP (fallback/debug). Comentado para FORÇAR só-HTTPS via Traefik.
+    # ports:
+    #   - "${TELEGRAM_MTPROTO_PORT:-3037}:3037"
+    networks:
+      - default
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mtproto.rule=Host(`srv836395.hstgr.cloud`)"
+      - "traefik.http.routers.mtproto.entrypoints=websecure"
+      - "traefik.http.routers.mtproto.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mtproto.loadbalancer.server.port=3037"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3037/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
       interval: 30s
@@ -73,6 +66,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-volumes:
-  caddy_data:
-  caddy_config:
+networks:
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK:-traefik_default}
