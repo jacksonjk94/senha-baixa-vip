@@ -1,22 +1,20 @@
 # SenhaBaixa VIP — telegram-mtproto (deploy na VPS Hostinger)
 #
-# ATENÇÃO: o repo github.com/jacksonjk94/senha-baixa-vip é PRIVADO.
-# Por isso a importação por URL falha com "Docker project not found"
-# (o raw.githubusercontent.com retorna 404 sem token). Use um dos
-# caminhos abaixo — NÃO cole o caminho local Windows no painel.
+# OPÇÃO B (painel Hostinger → Gerenciador Docker → Compose → importar por URL):
+#   Cole EXATAMENTE esta URL (é o arquivo YAML "raw", não a URL do repo):
+#   https://raw.githubusercontent.com/jacksonjk94/senha-baixa-vip/main/services/telegram-mtproto/docker-compose.hostinger.yml
+#   NÃO cole a URL de build (https://github.com/...git#main:...) — ela retorna
+#   página HTML, não YAML, e o painel responde "Docker project not found".
+#   No painel, preencha: TELEGRAM_API_ID, TELEGRAM_API_HASH,
+#   TELEGRAM_MTPROTO_SERVICE_TOKEN (opcionais: TELEGRAM_MTPROTO_PORT=3037,
+#   TZ=America/Sao_Paulo). NÃO cole caminho local Windows (d:\...) no painel.
 #
-# OPÇÃO A (recomendado, via SSH na VPS):
+# OPÇÃO A (via SSH na VPS, dispensa o painel):
 #   git clone https://<SEU_TOKEN>@github.com/jacksonjk94/senha-baixa-vip.git /opt/senha-baixa-vip
 #   cd /opt/senha-baixa-vip/services/telegram-mtproto
 #   cp .env.example .env && nano .env   # preencha API_ID, API_HASH, SERVICE_TOKEN
 #   docker compose up -d --build
 #   curl http://127.0.0.1:3037/health   # esperado: {"ok":true}
-#
-# OPÇÃO B (painel Hostinger → Gerenciador Docker → Compose):
-#   NÃO use "importar por URL". Use "colar conteúdo" e cole este arquivo
-#   inteiro no editor, preenchendo as variáveis do painel:
-#     TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_MTPROTO_SERVICE_TOKEN
-#     (opcionais: TELEGRAM_MTPROTO_PORT=3037, TZ=America/Sao_Paulo)
 #
 # Depois aponte o TELEGRAM_MTPROTO_URL do Laravel para http://IP-DA-VPS:3037
 # e libere a porta 3037 no firewall da VPS (o token autentica as chamadas).
