@@ -1,0 +1,99 @@
+# SenhaBaixa VIP — stack completa na VPS (Laravel + MySQL + worker + cron).
+# O telegram-mtproto continua no compose próprio (services/telegram-mtproto/
+# docker-compose.hostinger.yml) — NÃO mexa nele, já está funcionando via Traefik.
+#
+# Regra no Traefik (mesmo host, sem conflito):
+#   mtproto → Host + (PathPrefix(/v1/) || Path(/health))  [prioridade 100]
+#   laravel → Host                                         [prioridade 10]
+# Scheduler interno do Laravel (schedule:work) DELIBERADAMENTE ausente:
+# o gatilho de disparos é o serviço `cron` → GET /api/n8n/disparos/processar
+# (mesmo comportamento da produção atual na Vercel).
+
+name: senha-baixa-vip-laravel
+
+services:
+  db:
+    image: mariadb:10.11
+    container_name: senha-baixa-vip-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+      MARIADB_DATABASE: ${DB_DATABASE:-agenda_facil}
+      MARIADB_USER: ${DB_USERNAME:-agenda}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  laravel:
+    build: .
+    container_name: senha-baixa-vip-laravel
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - storage_data:/var/www/html/storage/app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.laravel.rule=Host(`srv836395.hstgr.cloud`)"
+      - "traefik.http.routers.laravel.entrypoints=websecure"
+      - "traefik.http.routers.laravel.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.laravel.priority=10"
+      - "traefik.http.services.laravel.loadbalancer.server.port=80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  worker:
+    build: .
+    container_name: senha-baixa-vip-worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    volumes:
+      - storage_data:/var/www/html/storage/app
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cron:
+    build: ./services/disparos-cron
+    container_name: senha-baixa-vip-cron
+    restart: unless-stopped
+    depends_on:
+      laravel:
+        condition: service_started
+    environment:
+      DISPAROS_CRON_URL: http://laravel
+      N8N_WORKER_SECRET: ${N8N_WORKER_SECRET:?defina N8N_WORKER_SECRET no .env}
+      TZ: ${TZ:-America/Sao_Paulo}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  db_data:
+  storage_data:

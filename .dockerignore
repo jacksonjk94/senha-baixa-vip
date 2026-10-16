@@ -1,0 +1,18 @@
+# Build da imagem do Laravel (contexto: raiz do repo)
+.git/
+node_modules/
+vendor/
+services/
+tests/
+.docs/
+.env
+.env.*
+!.env.example
+docker-compose*.yml
+Dockerfile*
+docker/
+.vercelignore
+vercel.json
+*.md
+.phpunit.result.cache
+public/hot

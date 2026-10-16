@@ -44,8 +44,11 @@ services:
     # ports:
     #   - "${TELEGRAM_MTPROTO_PORT:-3037}:3037"
     labels:
+      # Mesma Host do Laravel (docker-compose.vps.yml), sem conflito:
+      # mtproto atende /health e /v1/* com prioridade maior; o resto vai p/ o app.
       - "traefik.enable=true"
-      - "traefik.http.routers.mtproto.rule=Host(`srv836395.hstgr.cloud`)"
+      - "traefik.http.routers.mtproto.rule=Host(`srv836395.hstgr.cloud`) && (PathPrefix(`/v1/`) || Path(`/health`))"
+      - "traefik.http.routers.mtproto.priority=100"
       - "traefik.http.routers.mtproto.entrypoints=websecure"
       - "traefik.http.routers.mtproto.tls.certresolver=letsencrypt"
       - "traefik.http.services.mtproto.loadbalancer.server.port=3037"
