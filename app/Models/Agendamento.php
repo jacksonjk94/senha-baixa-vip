@@ -32,6 +32,7 @@ class Agendamento extends Model
         'destino_nome',
         'telegram_message_id',
         'posicao_grupo',
+        'latencia_ms',
         'contexto_grupo',
         'data_hora_envio',
         'status',
@@ -179,6 +180,50 @@ class Agendamento extends Model
             'status' => self::STATUS_ERRO,
             'mensagem_erro' => mb_substr($mensagem, 0, 1000),
         ]);
+    }
+
+    /**
+     * Mescla mensagens lidas do grupo ao retrato guardado (rolagem do
+     * modal): acrescenta as mais antigas sem duplicar, atualiza a posição
+     * quando identificada e limita a 120 registros.
+     */
+    public function mesclarContexto(array $mensagens, ?int $posicao = null): void
+    {
+        $atual = is_array($this->contexto_grupo) ? $this->contexto_grupo : [];
+        $lista = collect($atual['mensagens'] ?? []);
+        $ids = $lista->map(fn ($m) => (string) ($m['id'] ?? ''))->flip()->all();
+
+        foreach ($mensagens as $mensagem) {
+            if (! is_array($mensagem)) {
+                continue;
+            }
+
+            $id = (string) ($mensagem['id'] ?? '');
+
+            if ($id === '' || isset($ids[$id])) {
+                continue;
+            }
+
+            $ids[$id] = true;
+            $lista->push([
+                'id' => $id,
+                'texto' => mb_substr((string) ($mensagem['texto'] ?? ''), 0, 200),
+                'data' => $mensagem['data'] ?? null,
+                'saida' => (bool) ($mensagem['saida'] ?? false),
+            ]);
+        }
+
+        $posicaoFinal = $posicao ?? ($atual['posicao'] ?? $this->posicao_grupo);
+
+        $this->forceFill([
+            'contexto_grupo' => [
+                'capturado_em' => $atual['capturado_em'] ?? now('America/Sao_Paulo')->toDateTimeString(),
+                'atualizado_em' => now('America/Sao_Paulo')->toDateTimeString(),
+                'posicao' => $posicaoFinal,
+                'mensagens' => $lista->take(120)->values()->all(),
+            ],
+            'posicao_grupo' => $posicaoFinal,
+        ])->save();
     }
 
     /**

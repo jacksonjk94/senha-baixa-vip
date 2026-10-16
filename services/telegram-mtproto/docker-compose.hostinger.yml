@@ -1,20 +1,27 @@
-# SenhaBaixa VIP — telegram-mtproto para importação direta por URL
-# (Hostinger VPS → Gerenciador Docker → Compose → colar a URL deste arquivo).
+# SenhaBaixa VIP — telegram-mtproto (deploy na VPS Hostinger)
 #
-# URL (raw, após commit + push):
-#   https://raw.githubusercontent.com/jacksonjk94/senha-baixa-vip/main/services/telegram-mtproto/docker-compose.hostinger.yml
+# ATENÇÃO: o repo github.com/jacksonjk94/senha-baixa-vip é PRIVADO.
+# Por isso a importação por URL falha com "Docker project not found"
+# (o raw.githubusercontent.com retorna 404 sem token). Use um dos
+# caminhos abaixo — NÃO cole o caminho local Windows no painel.
 #
-# No painel, preencha as variáveis (valores do .env do Laravel — NÃO commitar):
-#   TELEGRAM_API_ID               → API ID do Telegram
-#   TELEGRAM_API_HASH             → API Hash do Telegram
-#   TELEGRAM_MTPROTO_SERVICE_TOKEN → MESMO valor do Laravel
-#   TELEGRAM_MTPROTO_PORT         → 3037 (opcional)
-#   TZ                            → America/Sao_Paulo (opcional)
+# OPÇÃO A (recomendado, via SSH na VPS):
+#   git clone https://<SEU_TOKEN>@github.com/jacksonjk94/senha-baixa-vip.git /opt/senha-baixa-vip
+#   cd /opt/senha-baixa-vip/services/telegram-mtproto
+#   cp .env.example .env && nano .env   # preencha API_ID, API_HASH, SERVICE_TOKEN
+#   docker compose up -d --build
+#   curl http://127.0.0.1:3037/health   # esperado: {"ok":true}
 #
-# O build usa o próprio GitHub (contexto remoto) — dispensa registry/imagem.
-# Após subir: curl http://IP-DA-VPS:3037/health  (esperado: {"ok":true})
+# OPÇÃO B (painel Hostinger → Gerenciador Docker → Compose):
+#   NÃO use "importar por URL". Use "colar conteúdo" e cole este arquivo
+#   inteiro no editor, preenchendo as variáveis do painel:
+#     TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_MTPROTO_SERVICE_TOKEN
+#     (opcionais: TELEGRAM_MTPROTO_PORT=3037, TZ=America/Sao_Paulo)
+#
 # Depois aponte o TELEGRAM_MTPROTO_URL do Laravel para http://IP-DA-VPS:3037
-# e libere a porta 3037 no firewall da VPS.
+# e libere a porta 3037 no firewall da VPS (o token autentica as chamadas).
+
+name: senha-baixa-vip-mtproto
 
 services:
   telegram-mtproto:
@@ -34,7 +41,7 @@ services:
     ports:
       - "${TELEGRAM_MTPROTO_PORT:-3037}:3037"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3037/health"]
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3037/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 3

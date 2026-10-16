@@ -317,6 +317,37 @@ test('lists recent group messages for position lookup', async (context) => {
     });
 });
 
+test('paginates history by offset id', async (context) => {
+    let recebidos = null;
+    const fakeClient = {
+        async connect() {},
+        async getEntity(id) { return { id }; },
+        async *iterMessages(_entity, params) {
+            recebidos = params;
+            yield { id: 100, message: 'mais antiga da página', date: 90, out: false };
+            yield { id: 99, message: 'anterior', date: 80, out: false };
+        },
+        async disconnect() {},
+    };
+    const { baseUrl, headers } = await startTestServer(context, fakeClient);
+
+    const response = await fetch(`${baseUrl}/v1/messages/history`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ session: 'sessao-valida', chatId: '-5552808073', limit: 10, offsetId: '101' }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+        ok: true,
+        mensagens: [
+            { id: '100', texto: 'mais antiga da página', data: 90, saida: false },
+            { id: '99', texto: 'anterior', data: 80, saida: false },
+        ],
+    });
+    assert.equal(recebidos.offsetId, 101);
+    assert.equal(recebidos.limit, 10);
+});
+
 test('history without session is rejected', async (context) => {
     const fakeClient = {
         async connect() { throw new Error('should not connect'); },

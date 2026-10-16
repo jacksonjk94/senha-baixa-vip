@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Agendamento;
+use App\Models\Configuracao;
 
 /**
  * Disparo de mensagens do sistema.
@@ -70,14 +71,15 @@ class TelegramDisparoService
     /**
      * Envia o texto do agendamento e captura o entorno no grupo.
      *
-     * @return array{ok: bool, via: ?string, resposta: mixed, message_id: ?string, posicao_grupo: ?int, contexto: ?array}
+     * @return array{ok: bool, via: ?string, resposta: mixed, message_id: ?string, posicao_grupo: ?int, contexto: ?array, latencia_ms: int}
      */
     public function enviar(Agendamento $agendamento): array
     {
         $chatId = $this->chatAlvo($agendamento);
+        $latenciaMs = Configuracao::latenciaAtiva() ? Configuracao::latenciaMs() : 0;
 
         if ($chatId === '') {
-            return ['ok' => false, 'via' => null, 'resposta' => 'chat_id vazio — grupo sem chat_id cadastrado', 'message_id' => null, 'posicao_grupo' => null, 'contexto' => null];
+            return ['ok' => false, 'via' => null, 'resposta' => 'chat_id vazio — grupo sem chat_id cadastrado', 'message_id' => null, 'posicao_grupo' => null, 'contexto' => null, 'latencia_ms' => $latenciaMs];
         }
 
         $texto = $agendamento->textoMensagem();
@@ -98,7 +100,7 @@ class TelegramDisparoService
                     $messageId = $this->extrairMessageId('mtproto', $envio['resposta']);
                     $captura = $this->capturarContexto($agendamento, $chatId, $messageId);
 
-                    return ['ok' => true, 'via' => 'mtproto', 'resposta' => $envio['resposta'], 'message_id' => $messageId, 'posicao_grupo' => $captura['posicao_grupo'], 'contexto' => $captura['contexto']];
+                    return ['ok' => true, 'via' => 'mtproto', 'resposta' => $envio['resposta'], 'message_id' => $messageId, 'posicao_grupo' => $captura['posicao_grupo'], 'contexto' => $captura['contexto'], 'latencia_ms' => $latenciaMs];
                 }
 
                 // Sessão revogada/expirada: limpa e tenta a próxima conta/bot.
@@ -114,17 +116,17 @@ class TelegramDisparoService
                     continue;
                 }
 
-                return ['ok' => false, 'via' => 'mtproto', 'resposta' => $this->prefixarChat($chatId, $envio['resposta']), 'message_id' => null, 'posicao_grupo' => null, 'contexto' => null];
+                return ['ok' => false, 'via' => 'mtproto', 'resposta' => $this->prefixarChat($chatId, $envio['resposta']), 'message_id' => null, 'posicao_grupo' => null, 'contexto' => null, 'latencia_ms' => $latenciaMs];
             }
         }
 
         $envio = $this->bot->enviarMensagem($chatId, $texto);
 
         if ($envio['ok']) {
-            return ['ok' => true, 'via' => 'bot', 'resposta' => $envio['resposta'], 'message_id' => $this->extrairMessageId('bot', $envio['resposta']), 'posicao_grupo' => null, 'contexto' => null];
+            return ['ok' => true, 'via' => 'bot', 'resposta' => $envio['resposta'], 'message_id' => $this->extrairMessageId('bot', $envio['resposta']), 'posicao_grupo' => null, 'contexto' => null, 'latencia_ms' => $latenciaMs];
         }
 
-        return ['ok' => false, 'via' => 'bot', 'resposta' => $this->prefixarChat($chatId, $envio['resposta']), 'message_id' => null, 'posicao_grupo' => null, 'contexto' => null];
+        return ['ok' => false, 'via' => 'bot', 'resposta' => $this->prefixarChat($chatId, $envio['resposta']), 'message_id' => null, 'posicao_grupo' => null, 'contexto' => null, 'latencia_ms' => $latenciaMs];
     }
 
     /**
@@ -167,20 +169,23 @@ class TelegramDisparoService
 
     /**
      * Histórico ao vivo do grupo via sessão da conta + posição da mensagem.
+     * Com $offsetId, continua a paginação; $jaLidas desloca a posição global.
      *
-     * @return array{ok: bool, mensagens: array, posicao: ?int}
+     * @return array{ok: bool, mensagens: array, posicao: ?int, tem_mais: bool, next_offset_id: ?string}
      */
-    public function contextoAtual(Agendamento $agendamento, ?string $chatId = null, ?string $messageId = null, int $limite = 15): array
+    public function contextoAtual(Agendamento $agendamento, ?string $chatId = null, ?string $messageId = null, int $limite = 15, ?int $offsetId = null, int $jaLidas = 0): array
     {
+        $vazio = ['ok' => false, 'mensagens' => [], 'posicao' => null, 'tem_mais' => false, 'next_offset_id' => null];
+
         if (! $this->mtproto->configurado()) {
-            return ['ok' => false, 'mensagens' => [], 'posicao' => null];
+            return $vazio;
         }
 
         $chatId ??= $this->chatAlvo($agendamento);
         $messageId ??= $agendamento->telegram_message_id;
 
         if ($chatId === '') {
-            return ['ok' => false, 'mensagens' => [], 'posicao' => null];
+            return $vazio;
         }
 
         foreach ($this->candidatosSessao($agendamento) as $conta) {
@@ -191,7 +196,8 @@ class TelegramDisparoService
             $historico = $this->mtproto->obterHistorico(
                 (string) $conta->telegram_mtproto_session,
                 $chatId,
-                $limite
+                $limite,
+                $offsetId
             );
 
             if (! $historico['ok']) {
@@ -210,17 +216,25 @@ class TelegramDisparoService
             if (filled($messageId)) {
                 foreach ($mensagens as $i => $mensagem) {
                     if ((string) ($mensagem['id'] ?? '') === (string) $messageId) {
-                        $posicao = $i + 1;
+                        $posicao = $jaLidas + $i + 1;
 
                         break;
                     }
                 }
             }
 
-            return ['ok' => true, 'mensagens' => $mensagens, 'posicao' => $posicao];
+            $ultima = end($mensagens);
+
+            return [
+                'ok' => true,
+                'mensagens' => $mensagens,
+                'posicao' => $posicao,
+                'tem_mais' => count($mensagens) >= max(1, min(30, $limite)),
+                'next_offset_id' => $ultima ? (string) ($ultima['id'] ?? '') : null,
+            ];
         }
 
-        return ['ok' => false, 'mensagens' => [], 'posicao' => null];
+        return $vazio;
     }
 
     protected function prefixarChat(string $chatId, mixed $resposta): string

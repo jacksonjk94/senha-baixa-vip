@@ -38,6 +38,7 @@ class ManualTest extends TestCase
 
         $resposta->assertOk();
         $resposta->assertSee('af-avatar-sm', false);
+        $resposta->assertSee('position:sticky', false);
         $resposta->assertSee('/admin/telegram/foto/visitante/' . $visitante->uuid, false);
     }
 

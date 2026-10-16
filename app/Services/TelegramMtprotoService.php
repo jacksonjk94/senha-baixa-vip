@@ -88,7 +88,7 @@ class TelegramMtprotoService
      * Retorna ['ok'=>bool, 'mensagens'=>array|resposta, 'sessao_invalida'=>bool,
      * 'falha_conexao'=>bool]. Cada mensagem: ['id','texto','data','saida'].
      */
-    public function obterHistorico(string $session, string $chatId, int $limite = 10): array
+    public function obterHistorico(string $session, string $chatId, int $limite = 10, ?int $offsetId = null): array
     {
         if (! $this->configurado()) {
             return ['ok' => false, 'resposta' => 'A integração MTProto não está configurada neste ambiente.', 'sessao_invalida' => false, 'falha_conexao' => true];
@@ -103,11 +103,12 @@ class TelegramMtprotoService
                 ->asJson()
                 ->withToken((string) config('services.telegram_mtproto.service_token'))
                 ->timeout(30)
-                ->post(rtrim((string) config('services.telegram_mtproto.url'), '/') . '/v1/messages/history', [
+                ->post(rtrim((string) config('services.telegram_mtproto.url'), '/') . '/v1/messages/history', array_filter([
                     'session' => $session,
                     'chatId' => trim($chatId),
                     'limit' => max(1, min(30, $limite)),
-                ]);
+                    'offsetId' => $offsetId,
+                ], fn ($value) => $value !== null));
         } catch (ConnectionException) {
             return ['ok' => false, 'resposta' => 'O serviço local de conexão Telegram não está disponível.', 'sessao_invalida' => false, 'falha_conexao' => true];
         }

@@ -215,7 +215,7 @@ class N8nDisparoTest extends TestCase
             'nome' => 'Grupo Aberto', 'chat_id' => '-100200013', 'tipo' => 'supergroup',
             'modo' => 'aberto', 'ativo' => true,
         ]);
-        Agendamento::factory()->create([
+        $agendamento = Agendamento::factory()->create([
             'grupo_telegram_id' => $grupo->id,
             'texto' => 'Vencido x1',
             'destino_tipo' => 'grupo',
@@ -230,6 +230,8 @@ class N8nDisparoTest extends TestCase
             ->assertJsonPath('enviados', 1)
             ->assertJsonPath('latencia_ativa', true)
             ->assertJsonPath('latencia_ms', 250);
+
+        $this->assertSame(250, (int) $agendamento->refresh()->latencia_ms);
     }
 
     public function test_alvo_envio_aberto_e_inicio_do_minuto(): void

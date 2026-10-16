@@ -57,23 +57,46 @@ class AdminController extends Controller
 
     /**
      * Posição da mensagem no grupo para o modal (tempo real quando há
-     * sessão da conta; senão, o retrato guardado no envio).
+     * sessão da conta; senão, o retrato guardado no envio). Suporta
+     * paginação: ?limit= (máx 30), ?offset_id= (id mais antigo exibido)
+     * e ?lidas= (quantas já exibidas, para a posição global).
      */
-    public function contexto(Agendamento $agendamento, \App\Services\TelegramDisparoService $disparo)
+    public function contexto(Request $request, Agendamento $agendamento, \App\Services\TelegramDisparoService $disparo)
     {
         $agendamento->loadMissing('user', 'grupo');
 
-        $live = $disparo->contextoAtual($agendamento);
+        $limite = max(1, min(30, (int) $request->query('limit', 15)));
+        $offsetId = $request->query('offset_id');
+        $offsetId = is_numeric($offsetId) ? (int) $offsetId : null;
+        $jaLidas = max(0, (int) $request->query('lidas', 0));
+
+        $live = $disparo->contextoAtual($agendamento, null, null, $limite, $offsetId, $jaLidas);
 
         if ($live['ok'] && filled($live['mensagens'])) {
+            // Mantém o histórico carregado gravado no DB e atualiza a
+            // posição quando a mensagem é identificada na rolagem.
+            $agendamento->mesclarContexto($live['mensagens'], $live['posicao']);
+            $agendamento->refresh();
+
+            // Uma vez identificada, a posição fica fixa: se a mensagem saiu
+            // da janela ao vivo, mostra a gravada.
+            $posicao = $live['posicao'] ?? $agendamento->posicao_grupo;
+
             return response()->json([
                 'ok' => true,
                 'ao_vivo' => true,
-                'posicao' => $live['posicao'],
+                'posicao' => $posicao,
+                'posicao_fixa' => $live['posicao'] === null && $posicao !== null,
                 'message_id' => $agendamento->telegram_message_id,
                 'total' => count($live['mensagens']),
+                'tem_mais' => $live['tem_mais'],
+                'next_offset_id' => $live['next_offset_id'],
                 'mensagens' => $live['mensagens'],
             ]);
+        }
+
+        if ($offsetId !== null) {
+            return response()->json(['ok' => true, 'ao_vivo' => true, 'mensagens' => [], 'tem_mais' => false, 'next_offset_id' => null]);
         }
 
         $retrato = is_array($agendamento->contexto_grupo) ? $agendamento->contexto_grupo : null;
@@ -87,8 +110,11 @@ class AdminController extends Controller
             'ok' => true,
             'ao_vivo' => false,
             'posicao' => $retrato['posicao'] ?? $agendamento->posicao_grupo,
+            'posicao_fixa' => true,
             'message_id' => $agendamento->telegram_message_id,
             'total' => count($mensagens),
+            'tem_mais' => false,
+            'next_offset_id' => null,
             'capturado_em' => $retrato['capturado_em'] ?? null,
             'mensagens' => array_values($mensagens),
         ]);

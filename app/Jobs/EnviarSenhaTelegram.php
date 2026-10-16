@@ -30,6 +30,7 @@ class EnviarSenhaTelegram implements ShouldQueue
             $agendamento->forceFill([
                 'telegram_message_id' => $resultado['message_id'] ?? null,
                 'posicao_grupo' => $resultado['posicao_grupo'] ?? null,
+                'latencia_ms' => $resultado['latencia_ms'] ?? null,
                 'contexto_grupo' => $resultado['contexto'] ?? null,
             ])->save();
         } else {

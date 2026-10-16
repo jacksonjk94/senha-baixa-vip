@@ -155,6 +155,30 @@ function ordenarMensagens(lista, limit) {
         }));
 }
 
+/**
+ * Página do histórico (mais recentes primeiro). Sem offsetId usa
+ * getMessages; com offsetId (rolagem) usa iterMessages, que aceita
+ * deslocamento por id de forma documentada.
+ */
+async function lerHistorico(client, chatId, limit, offsetId) {
+    const entity = await client.getEntity(Number(chatId));
+
+    if (offsetId !== '') {
+        const coletadas = [];
+        for await (const mensagem of client.iterMessages(entity, { limit, offsetId: Number(offsetId) })) {
+            coletadas.push(mensagem);
+            if (coletadas.length >= limit) {
+                break;
+            }
+        }
+        return ordenarMensagens(coletadas, limit);
+    }
+
+    const raw = await client.getMessages(entity, { limit });
+    const list = Array.isArray(raw) ? raw : (raw?.messages ?? []);
+    return ordenarMensagens(list, limit);
+}
+
 function errorResponse(error) {
     switch (error?.errorMessage) {
         case 'PHONE_NUMBER_INVALID':
@@ -495,6 +519,8 @@ export function createTelegramMtprotoServer({
             const session = typeof body.session === 'string' ? body.session : '';
             const chatId = typeof body.chatId === 'string' ? body.chatId.trim() : '';
             const limit = Math.max(1, Math.min(30, Number(body.limit) || 10));
+            const offsetRaw = String(body.offsetId ?? '').trim();
+            const offsetId = /^\d{1,20}$/.test(offsetRaw) && offsetRaw !== '0' ? offsetRaw : '';
 
             if (session === '') {
                 return responseJson(response, 422, { message: 'Sessão do Telegram ausente. Autorize a conta novamente.', sessionInvalid: true });
@@ -512,12 +538,7 @@ export function createTelegramMtprotoServer({
             }
 
             try {
-                const entity = await client.getEntity(Number(chatId));
-                const raw = await client.getMessages(entity, { limit });
-                const list = Array.isArray(raw) ? raw : (raw?.messages ?? []);
-                // Ordem canônica: mais recentes primeiro (a biblioteca não
-                // garante a ordem) — a posição é contada a partir daí.
-                const mensagens = ordenarMensagens(list, limit);
+                const mensagens = await lerHistorico(client, chatId, limit, offsetId);
                 return responseJson(response, 200, { ok: true, mensagens });
             } catch (error) {
                 await dropSender(session);
@@ -525,10 +546,7 @@ export function createTelegramMtprotoServer({
                 if (isTransportError(error)) {
                     try {
                         const retry = await senderClient(session);
-                        const entity = await retry.getEntity(Number(chatId));
-                        const raw = await retry.getMessages(entity, { limit });
-                        const list = Array.isArray(raw) ? raw : (raw?.messages ?? []);
-                        const mensagens = ordenarMensagens(list, limit);
+                        const mensagens = await lerHistorico(retry, chatId, limit, offsetId);
                         return responseJson(response, 200, { ok: true, mensagens });
                     } catch (retryError) {
                         await dropSender(session);

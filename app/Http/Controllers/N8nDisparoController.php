@@ -168,6 +168,7 @@ class N8nDisparoController extends Controller
                     'mensagem_erro' => null,
                     'telegram_message_id' => $envio['message_id'] ?? null,
                     'posicao_grupo' => $envio['posicao_grupo'] ?? null,
+                    'latencia_ms' => $envio['latencia_ms'] ?? $latenciaMs,
                     'contexto_grupo' => $envio['contexto'] ?? null,
                 ]);
                 $enviados++;

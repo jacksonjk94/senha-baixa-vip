@@ -34,6 +34,8 @@ Projeto em Laravel · Curitiba/PR · 2026
 | 06/10/2026 | 3.3.0 | MTProto pessoal | 🔶 Teleproto, consentimento, código/2FA e listagem de grupos/supergrupos; testes automatizados OK, autenticação real pendente | GitHub Copilot |
 | 07/10/2026 | 4.0.0 | Fluxo | ✅ Fluxo unificado substituído pelo v3.4.0 do `CHANGELOG.md`: /acesso agora começa por Telefone (retorno por 4 dígitos ou telefone completo +55), código MTProto direto na etapa 2, Grupo vem da conta MTProto, Horário e Confirmação separados | OpenCode |
 | 12/10/2026 | 4.2.0 | Disparo MTProto + precisão | ✅ Disparos pela sessão MTProto guardada (`TelegramDisparoService`: conta → bot fallback); sessão salva no fluxo do código; conexão Node aquecida; espera até o :00 menos latência medida (250ms, admin "Disparos com latência/antecedência" ligado por padrão); `disparos-cron` dispara adiantado; endpoint `GET /api/n8n/disparos/precisao` — ver detalhes abaixo | OpenCode (Muse Spark) |
+| 14/10/2026 | 4.3.0 | Posição no grupo | ✅ Captura pós-disparo (message_id + retrato das recentes); modal 👁 Posição em Disparos e Visão geral (ao vivo com rolagem infinita, fallback no retrato); histórico paginado no MTProto (`offsetId`); migration `000022` | OpenCode (Muse Spark) |
+| 14/10/2026 | 4.4.0 | Posição persistente + latência gravada | ✅ Rolagem do modal mescla no DB (`mesclarContexto`, 120 máx., sem dupes) e atualiza a posição; cabeçalho fixo (sticky); `latencia_ms` gravada no disparo (migration `000023`); posição identificada fica fixa (badge GRAVADA) ao reabrir | OpenCode (Muse Spark) |
 
 ## ✅ v4.0.0 — Fluxo unificado substituído (07/10/2026)
 
@@ -61,6 +63,13 @@ Projeto em Laravel · Curitiba/PR · 2026
 - **Medição**: 5 envios MTProto reais no grupo de teste via localhost: 267–403ms (média 310ms); via Cloudflare: 499–909ms (túnel somava ~0,5s) — `.env` local trocado para `http://127.0.0.1:3037`. Bot API com token 401 (só MTProto operacional).
 - **Precisão**: conexão Node aquecida entre envios (idle 2min, retry 1× em falha de transporte); worker segura até `alvo(:00) − latência` (`time_sleep_until`, janela `DISPARO_ANTECIPACAO_SEGUNDOS`, re-checagem anti-duplo). Admin → Config. disparos: **"Disparos com latência/antecedência" ligado por padrão** + latência em ms (padrão 250ms medidos). `services/disparos-cron/server.js` lê `GET /api/n8n/disparos/precisao` (5min) e dispara o gatilho adiantado pela latência.
 - **Testes**: `N8nDisparoTest` 12/12, `MtprotoDisparoTest` 6/6, `telegram-mtproto` 9/9, `disparos-cron` 3/3.
+
+## ✅ v4.3.0 — Posição do disparo no grupo (14/10/2026)
+
+- **Captura**: após o envio MTProto, lê as 10 recentes e grava `telegram_message_id`, `posicao_grupo` (1 = mais recente) e `contexto_grupo` (migration `000022`); via bot grava só o id.
+- **Modal 👁 Posição** em Disparos e Visão geral (desktop + mobile, funciona no polling): tenta o ao vivo e cai no retrato; ordem igual ao grupo (antigas no topo); mostra "Nº X (1 = mais recente)" e quantas vieram depois.
+- **Rolagem infinita**: histórico paginado (`offsetId` via `iterMessages`, 30/página); o modal carrega mais ao rolar ou no botão; posição global mantida entre páginas.
+- **Testes**: `MtprotoDisparoTest` 11/11, `N8nDisparoTest` 15/15, `telegram-mtproto` 12/12.
 
 ## 🔄 Próximas Implementações
 
