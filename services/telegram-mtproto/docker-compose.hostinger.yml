@@ -17,12 +17,10 @@
 #   curl http://127.0.0.1:3037/health   # esperado: {"ok":true}
 #
 # Depois aponte o TELEGRAM_MTPROTO_URL do Laravel para https://srv836395.hstgr.cloud
-# (HTTPS via Traefik embutido da Hostinger, sem porta). Pré-requisitos na VPS:
-#   - portas 80 e 443 liberadas (ufw + firewall do hPanel) p/ o desafio HTTP
-#     do Let's Encrypt;
-#   - descobrir a rede do Traefik: docker inspect traefik-traefik-1
-#     (padrão: traefik_default; se for outra, exporte TRAEFIK_NETWORK=<nome>
-#     ou adicione no .env antes do up).
+# (HTTPS via Traefik embutido da Hostinger, sem porta). Pré-requisito: portas
+# 80 e 443 liberadas (ufw + firewall do hPanel) p/ o desafio HTTP do Let's Encrypt.
+# (O Traefik da Hostinger roda em modo host: não precisa de rede compartilhada,
+# só das labels abaixo.)
 # Para voltar ao HTTP direto temporariamente, descomente o bloco `ports:` abaixo.
 
 name: senha-baixa-vip-mtproto
@@ -45,9 +43,6 @@ services:
     # Direto HTTP (fallback/debug). Comentado para FORÇAR só-HTTPS via Traefik.
     # ports:
     #   - "${TELEGRAM_MTPROTO_PORT:-3037}:3037"
-    networks:
-      - default
-      - traefik
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.mtproto.rule=Host(`srv836395.hstgr.cloud`)"
@@ -65,8 +60,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-networks:
-  traefik:
-    external: true
-    name: ${TRAEFIK_NETWORK:-traefik_default}
